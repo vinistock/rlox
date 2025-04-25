@@ -46,7 +46,6 @@ pub struct Token {
     pub token_type: TokenTypes,
     pub lexeme: String,
     pub line: usize,
-    // How do handle literal?
 }
 
 impl Token {

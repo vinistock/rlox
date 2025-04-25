@@ -39,6 +39,11 @@ fn run_interactively() {
 }
 
 fn run(code: String) {
-    let tokens = scan(&code);
-    println!("Tokens: {:?}", tokens);
+    let (tokens, errors) = scan(&code);
+
+    if errors.is_empty() {
+        println!("Tokens: {:?}", tokens);
+    } else {
+        eprintln!("Errors: {:?}", errors);
+    }
 }
