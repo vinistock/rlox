@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum TokenTypes {
+pub enum TokenType {
     LeftParen,
     RightParen,
     LeftBrace,
@@ -43,13 +43,13 @@ pub enum TokenTypes {
 
 #[derive(Debug)]
 pub struct Token {
-    pub token_type: TokenTypes,
+    pub token_type: TokenType,
     pub lexeme: String,
     pub line: usize,
 }
 
 impl Token {
-    pub fn new(token_type: TokenTypes, lexeme: String, line: usize) -> Token {
+    pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Token {
         Token {
             token_type,
             lexeme,

@@ -5,36 +5,36 @@ use crate::token::*;
 pub struct Scanner<'a> {
     tokens: &'a mut Vec<Token>,
     errors: &'a mut Vec<String>,
-    source: &'a String,
+    source: &'a str,
     start: usize,
     current: usize,
     line: usize,
-    keywords: HashMap<String, TokenTypes>,
+    keywords: HashMap<String, TokenType>,
 }
 
 impl<'a> Scanner<'a> {
     pub fn new(
-        source: &'a String,
+        source: &'a str,
         tokens: &'a mut Vec<Token>,
         errors: &'a mut Vec<String>,
     ) -> Scanner<'a> {
-        let mut keywords: HashMap<String, TokenTypes> = HashMap::new();
-        keywords.insert("and".to_string(), TokenTypes::And);
-        keywords.insert("class".to_string(), TokenTypes::Class);
-        keywords.insert("else".to_string(), TokenTypes::Else);
-        keywords.insert("false".to_string(), TokenTypes::False);
-        keywords.insert("for".to_string(), TokenTypes::For);
-        keywords.insert("fun".to_string(), TokenTypes::Fun);
-        keywords.insert("if".to_string(), TokenTypes::If);
-        keywords.insert("nil".to_string(), TokenTypes::Nil);
-        keywords.insert("or".to_string(), TokenTypes::Or);
-        keywords.insert("print".to_string(), TokenTypes::Print);
-        keywords.insert("return".to_string(), TokenTypes::Return);
-        keywords.insert("super".to_string(), TokenTypes::Super);
-        keywords.insert("this".to_string(), TokenTypes::This);
-        keywords.insert("true".to_string(), TokenTypes::True);
-        keywords.insert("var".to_string(), TokenTypes::Var);
-        keywords.insert("while".to_string(), TokenTypes::While);
+        let mut keywords: HashMap<String, TokenType> = HashMap::new();
+        keywords.insert("and".to_string(), TokenType::And);
+        keywords.insert("class".to_string(), TokenType::Class);
+        keywords.insert("else".to_string(), TokenType::Else);
+        keywords.insert("false".to_string(), TokenType::False);
+        keywords.insert("for".to_string(), TokenType::For);
+        keywords.insert("fun".to_string(), TokenType::Fun);
+        keywords.insert("if".to_string(), TokenType::If);
+        keywords.insert("nil".to_string(), TokenType::Nil);
+        keywords.insert("or".to_string(), TokenType::Or);
+        keywords.insert("print".to_string(), TokenType::Print);
+        keywords.insert("return".to_string(), TokenType::Return);
+        keywords.insert("super".to_string(), TokenType::Super);
+        keywords.insert("this".to_string(), TokenType::This);
+        keywords.insert("true".to_string(), TokenType::True);
+        keywords.insert("var".to_string(), TokenType::Var);
+        keywords.insert("while".to_string(), TokenType::While);
 
         Scanner {
             tokens,
@@ -56,7 +56,7 @@ impl<'a> Scanner<'a> {
         }
 
         self.tokens
-            .push(Token::new(TokenTypes::Eof, "".to_string(), self.line));
+            .push(Token::new(TokenType::Eof, "".to_string(), self.line));
     }
 
     fn scan_token(&mut self, chars: &mut std::iter::Peekable<std::str::Chars>) {
@@ -68,45 +68,45 @@ impl<'a> Scanner<'a> {
         let character = char.unwrap();
 
         match character {
-            '(' => self.add_token(TokenTypes::LeftParen),
-            ')' => self.add_token(TokenTypes::RightParen),
-            '{' => self.add_token(TokenTypes::LeftBrace),
-            '}' => self.add_token(TokenTypes::RightBrace),
-            ',' => self.add_token(TokenTypes::Comma),
-            '.' => self.add_token(TokenTypes::Dot),
-            '-' => self.add_token(TokenTypes::Minus),
-            '+' => self.add_token(TokenTypes::Plus),
-            ';' => self.add_token(TokenTypes::Semicolon),
-            '*' => self.add_token(TokenTypes::Star),
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            '-' => self.add_token(TokenType::Minus),
+            '+' => self.add_token(TokenType::Plus),
+            ';' => self.add_token(TokenType::Semicolon),
+            '*' => self.add_token(TokenType::Star),
             '!' => {
                 let token_type = if self.match_char('=', chars) {
-                    TokenTypes::BangEqual
+                    TokenType::BangEqual
                 } else {
-                    TokenTypes::Bang
+                    TokenType::Bang
                 };
                 self.add_token(token_type);
             }
             '=' => {
                 let token_type = if self.match_char('=', chars) {
-                    TokenTypes::EqualEqual
+                    TokenType::EqualEqual
                 } else {
-                    TokenTypes::Equal
+                    TokenType::Equal
                 };
                 self.add_token(token_type);
             }
             '<' => {
                 let token_type = if self.match_char('=', chars) {
-                    TokenTypes::LessEqual
+                    TokenType::LessEqual
                 } else {
-                    TokenTypes::Less
+                    TokenType::Less
                 };
                 self.add_token(token_type);
             }
             '>' => {
                 let token_type = if self.match_char('=', chars) {
-                    TokenTypes::GreaterEqual
+                    TokenType::GreaterEqual
                 } else {
-                    TokenTypes::Greater
+                    TokenType::Greater
                 };
                 self.add_token(token_type);
             }
@@ -116,7 +116,7 @@ impl<'a> Scanner<'a> {
                     self.current += comment.map(|c| c.len_utf8()).sum::<usize>();
                     self.current += 1;
                 } else {
-                    self.add_token(TokenTypes::Slash);
+                    self.add_token(TokenType::Slash);
                 }
             }
             ' ' | '\r' | '\t' => {}
@@ -152,7 +152,7 @@ impl<'a> Scanner<'a> {
 
         match self.keywords.get(&text) {
             Some(token_type) => self.add_token(*token_type),
-            None => self.add_token(TokenTypes::Identifier),
+            None => self.add_token(TokenType::Identifier),
         }
     }
 
@@ -178,7 +178,7 @@ impl<'a> Scanner<'a> {
         }
 
         let number_str = &self.source[self.start..self.current];
-        self.add_token_with_text(TokenTypes::Number, number_str.to_string());
+        self.add_token_with_text(TokenType::Number, number_str.to_string());
     }
 
     fn string(&mut self, chars: &mut std::iter::Peekable<std::str::Chars>) {
@@ -208,7 +208,7 @@ impl<'a> Scanner<'a> {
         match closing_quote {
             Some(quote) => {
                 self.current += quote.len_utf8();
-                self.add_token_with_text(TokenTypes::String, string_value);
+                self.add_token_with_text(TokenType::String, string_value);
             }
             None => {
                 self.errors
@@ -235,12 +235,12 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn add_token(&mut self, token_type: TokenTypes) {
+    fn add_token(&mut self, token_type: TokenType) {
         let text = self.source[self.start..self.current].to_string();
         self.tokens.push(Token::new(token_type, text, self.line));
     }
 
-    fn add_token_with_text(&mut self, token_type: TokenTypes, text: String) {
+    fn add_token_with_text(&mut self, token_type: TokenType, text: String) {
         self.tokens.push(Token::new(token_type, text, self.line));
     }
 
@@ -255,11 +255,16 @@ impl<'a> Scanner<'a> {
     }
 }
 
-pub fn scan(source: &String) -> (Vec<Token>, Vec<String>) {
+pub fn scan(source: &str) -> Result<Vec<Token>, Vec<String>> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
     Scanner::new(source, &mut tokens, &mut errors).scan();
-    (tokens, errors)
+
+    if errors.is_empty() {
+        Ok(tokens)
+    } else {
+        Err(errors)
+    }
 }
 
 #[cfg(test)]
@@ -269,23 +274,22 @@ mod tests {
     #[test]
     fn test_scanning_single_character_tokens() {
         let map = vec![
-            ('(', TokenTypes::LeftParen),
-            (')', TokenTypes::RightParen),
-            ('{', TokenTypes::LeftBrace),
-            ('}', TokenTypes::RightBrace),
-            (',', TokenTypes::Comma),
-            ('.', TokenTypes::Dot),
-            ('-', TokenTypes::Minus),
-            ('+', TokenTypes::Plus),
-            (';', TokenTypes::Semicolon),
-            ('*', TokenTypes::Star),
-            ('/', TokenTypes::Slash),
+            ('(', TokenType::LeftParen),
+            (')', TokenType::RightParen),
+            ('{', TokenType::LeftBrace),
+            ('}', TokenType::RightBrace),
+            (',', TokenType::Comma),
+            ('.', TokenType::Dot),
+            ('-', TokenType::Minus),
+            ('+', TokenType::Plus),
+            (';', TokenType::Semicolon),
+            ('*', TokenType::Star),
+            ('/', TokenType::Slash),
         ];
 
         for (char, token_type) in map {
             let source = String::from(char);
-            let (tokens, errors) = scan(&source);
-            assert!(errors.is_empty());
+            let tokens = scan(&source).unwrap();
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].token_type, token_type);
         }
@@ -294,19 +298,18 @@ mod tests {
     #[test]
     fn test_scanning_something_equal_tokens() {
         let map = vec![
-            ("!".to_string(), TokenTypes::Bang),
-            ("!=".to_string(), TokenTypes::BangEqual),
-            ("=".to_string(), TokenTypes::Equal),
-            ("==".to_string(), TokenTypes::EqualEqual),
-            (">".to_string(), TokenTypes::Greater),
-            (">=".to_string(), TokenTypes::GreaterEqual),
-            ("<".to_string(), TokenTypes::Less),
-            ("<=".to_string(), TokenTypes::LessEqual),
+            ("!".to_string(), TokenType::Bang),
+            ("!=".to_string(), TokenType::BangEqual),
+            ("=".to_string(), TokenType::Equal),
+            ("==".to_string(), TokenType::EqualEqual),
+            (">".to_string(), TokenType::Greater),
+            (">=".to_string(), TokenType::GreaterEqual),
+            ("<".to_string(), TokenType::Less),
+            ("<=".to_string(), TokenType::LessEqual),
         ];
 
         for (source, token_type) in map {
-            let (tokens, errors) = scan(&source);
-            assert!(errors.is_empty());
+            let tokens = scan(&source).unwrap();
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].token_type, token_type);
         }
@@ -315,77 +318,71 @@ mod tests {
     #[test]
     fn test_scanning_comments() {
         let source = "// some content hello\n".to_string();
-        let (tokens, errors) = scan(&source);
-        assert!(errors.is_empty());
+        let tokens = scan(&source).unwrap();
         assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].token_type, TokenTypes::Eof);
+        assert_eq!(tokens[0].token_type, TokenType::Eof);
     }
 
     #[test]
     fn test_scanning_strings() {
         let source = "\"some string content\"".to_string();
-        let (tokens, errors) = scan(&source);
-        assert!(errors.is_empty());
+        let tokens = scan(&source).unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token_type, TokenTypes::String);
+        assert_eq!(tokens[0].token_type, TokenType::String);
         assert_eq!(tokens[0].lexeme, "some string content".to_string());
     }
 
     #[test]
     fn test_scanning_numbers() {
         let source = "123".to_string();
-        let (tokens, errors) = scan(&source);
-        assert!(errors.is_empty());
+        let tokens = scan(&source).unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token_type, TokenTypes::Number);
+        assert_eq!(tokens[0].token_type, TokenType::Number);
         assert_eq!(tokens[0].lexeme, "123".to_string());
     }
 
     #[test]
     fn test_scanning_numbers_with_fractional_values() {
         let source = "123.321".to_string();
-        let (tokens, errors) = scan(&source);
-        assert!(errors.is_empty());
+        let tokens = scan(&source).unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token_type, TokenTypes::Number);
+        assert_eq!(tokens[0].token_type, TokenType::Number);
         assert_eq!(tokens[0].lexeme, "123.321".to_string());
     }
 
     #[test]
     fn test_scanning_identifiers() {
         let source = "iDentifier_".to_string();
-        let (tokens, errors) = scan(&source);
-        assert!(errors.is_empty());
+        let tokens = scan(&source).unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token_type, TokenTypes::Identifier);
+        assert_eq!(tokens[0].token_type, TokenType::Identifier);
         assert_eq!(tokens[0].lexeme, "iDentifier_".to_string());
     }
 
     #[test]
     fn test_scanning_keywords() {
         let keywords = vec![
-            ("and".to_string(), TokenTypes::And),
-            ("class".to_string(), TokenTypes::Class),
-            ("else".to_string(), TokenTypes::Else),
-            ("false".to_string(), TokenTypes::False),
-            ("for".to_string(), TokenTypes::For),
-            ("fun".to_string(), TokenTypes::Fun),
-            ("if".to_string(), TokenTypes::If),
-            ("nil".to_string(), TokenTypes::Nil),
-            ("or".to_string(), TokenTypes::Or),
-            ("print".to_string(), TokenTypes::Print),
-            ("return".to_string(), TokenTypes::Return),
-            ("super".to_string(), TokenTypes::Super),
-            ("this".to_string(), TokenTypes::This),
-            ("true".to_string(), TokenTypes::True),
-            ("var".to_string(), TokenTypes::Var),
-            ("while".to_string(), TokenTypes::While),
+            ("and".to_string(), TokenType::And),
+            ("class".to_string(), TokenType::Class),
+            ("else".to_string(), TokenType::Else),
+            ("false".to_string(), TokenType::False),
+            ("for".to_string(), TokenType::For),
+            ("fun".to_string(), TokenType::Fun),
+            ("if".to_string(), TokenType::If),
+            ("nil".to_string(), TokenType::Nil),
+            ("or".to_string(), TokenType::Or),
+            ("print".to_string(), TokenType::Print),
+            ("return".to_string(), TokenType::Return),
+            ("super".to_string(), TokenType::Super),
+            ("this".to_string(), TokenType::This),
+            ("true".to_string(), TokenType::True),
+            ("var".to_string(), TokenType::Var),
+            ("while".to_string(), TokenType::While),
         ];
 
         for (keyword, token_type) in keywords {
             let source = keyword.clone();
-            let (tokens, errors) = scan(&source);
-            assert!(errors.is_empty());
+            let tokens = scan(&source).unwrap();
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].token_type, token_type);
             assert_eq!(tokens[0].lexeme, keyword);
