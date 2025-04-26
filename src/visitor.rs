@@ -46,11 +46,11 @@ mod tests {
             left: Box::new(Expr::Literal(Literal {
                 value: "5".to_string(),
             })),
-            operator: Token {
+            operator: Box::new(Token {
                 token_type: TokenType::Plus,
                 lexeme: "+".to_string(),
                 line: 1,
-            },
+            }),
             right: Box::new(Expr::Literal(Literal {
                 value: "3".to_string(),
             })),
@@ -64,20 +64,20 @@ mod tests {
     fn test_ast_printer_more_complex_case() {
         let expr = Binary {
             left: Box::new(Expr::Unary(Unary {
-                operator: Token {
+                operator: Box::new(Token {
                     token_type: TokenType::Minus,
                     lexeme: "-".to_string(),
                     line: 1,
-                },
+                }),
                 right: Box::new(Expr::Literal(Literal {
                     value: "123".to_string(),
                 })),
             })),
-            operator: Token {
+            operator: Box::new(Token {
                 token_type: TokenType::Star,
                 lexeme: "*".to_string(),
                 line: 1,
-            },
+            }),
             right: Box::new(Expr::Grouping(Grouping {
                 expression: Box::new(Expr::Literal(Literal {
                     value: "45.67".to_string(),

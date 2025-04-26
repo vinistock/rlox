@@ -24,7 +24,7 @@ impl Node for Expr {
 
 pub struct Binary {
     pub left: Box<Expr>,
-    pub operator: Token,
+    pub operator: Box<Token>,
     pub right: Box<Expr>,
 }
 
@@ -55,7 +55,7 @@ impl Node for Literal {
 }
 
 pub struct Unary {
-    pub operator: Token,
+    pub operator: Box<Token>,
     pub right: Box<Expr>,
 }
 
