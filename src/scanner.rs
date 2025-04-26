@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::token::*;
 
 pub struct Scanner<'a> {
@@ -7,6 +9,7 @@ pub struct Scanner<'a> {
     start: usize,
     current: usize,
     line: usize,
+    keywords: HashMap<String, TokenTypes>,
 }
 
 impl<'a> Scanner<'a> {
@@ -15,6 +18,24 @@ impl<'a> Scanner<'a> {
         tokens: &'a mut Vec<Token>,
         errors: &'a mut Vec<String>,
     ) -> Scanner<'a> {
+        let mut keywords: HashMap<String, TokenTypes> = HashMap::new();
+        keywords.insert("and".to_string(), TokenTypes::And);
+        keywords.insert("class".to_string(), TokenTypes::Class);
+        keywords.insert("else".to_string(), TokenTypes::Else);
+        keywords.insert("false".to_string(), TokenTypes::False);
+        keywords.insert("for".to_string(), TokenTypes::For);
+        keywords.insert("fun".to_string(), TokenTypes::Fun);
+        keywords.insert("if".to_string(), TokenTypes::If);
+        keywords.insert("nil".to_string(), TokenTypes::Nil);
+        keywords.insert("or".to_string(), TokenTypes::Or);
+        keywords.insert("print".to_string(), TokenTypes::Print);
+        keywords.insert("return".to_string(), TokenTypes::Return);
+        keywords.insert("super".to_string(), TokenTypes::Super);
+        keywords.insert("this".to_string(), TokenTypes::This);
+        keywords.insert("true".to_string(), TokenTypes::True);
+        keywords.insert("var".to_string(), TokenTypes::Var);
+        keywords.insert("while".to_string(), TokenTypes::While);
+
         Scanner {
             tokens,
             errors,
@@ -22,6 +43,7 @@ impl<'a> Scanner<'a> {
             start: 0,
             current: 0,
             line: 1,
+            keywords,
         }
     }
 
@@ -105,6 +127,8 @@ impl<'a> Scanner<'a> {
             _ => {
                 if character.is_ascii_digit() {
                     self.number(chars);
+                } else if character.is_alphanumeric() || character == '_' {
+                    self.identifier(chars);
                 } else {
                     self.errors.push(format!(
                         "Unexpected character '{}' at line {}",
@@ -112,6 +136,23 @@ impl<'a> Scanner<'a> {
                     ));
                 }
             }
+        }
+    }
+
+    fn identifier(&mut self, chars: &mut std::iter::Peekable<std::str::Chars>) {
+        while let Some(c) = chars.peek() {
+            if c.is_alphanumeric() || *c == '_' {
+                self.advance(chars);
+            } else {
+                break;
+            }
+        }
+
+        let text = self.source[self.start..self.current].to_string();
+
+        match self.keywords.get(&text) {
+            Some(token_type) => self.add_token(*token_type),
+            None => self.add_token(TokenTypes::Identifier),
         }
     }
 
@@ -308,5 +349,46 @@ mod tests {
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenTypes::Number);
         assert_eq!(tokens[0].lexeme, "123.321".to_string());
+    }
+
+    #[test]
+    fn test_scanning_identifiers() {
+        let source = "iDentifier_".to_string();
+        let (tokens, errors) = scan(&source);
+        assert!(errors.is_empty());
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].token_type, TokenTypes::Identifier);
+        assert_eq!(tokens[0].lexeme, "iDentifier_".to_string());
+    }
+
+    #[test]
+    fn test_scanning_keywords() {
+        let keywords = vec![
+            ("and".to_string(), TokenTypes::And),
+            ("class".to_string(), TokenTypes::Class),
+            ("else".to_string(), TokenTypes::Else),
+            ("false".to_string(), TokenTypes::False),
+            ("for".to_string(), TokenTypes::For),
+            ("fun".to_string(), TokenTypes::Fun),
+            ("if".to_string(), TokenTypes::If),
+            ("nil".to_string(), TokenTypes::Nil),
+            ("or".to_string(), TokenTypes::Or),
+            ("print".to_string(), TokenTypes::Print),
+            ("return".to_string(), TokenTypes::Return),
+            ("super".to_string(), TokenTypes::Super),
+            ("this".to_string(), TokenTypes::This),
+            ("true".to_string(), TokenTypes::True),
+            ("var".to_string(), TokenTypes::Var),
+            ("while".to_string(), TokenTypes::While),
+        ];
+
+        for (keyword, token_type) in keywords {
+            let source = keyword.clone();
+            let (tokens, errors) = scan(&source);
+            assert!(errors.is_empty());
+            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens[0].token_type, token_type);
+            assert_eq!(tokens[0].lexeme, keyword);
+        }
     }
 }
