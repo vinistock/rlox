@@ -1,7 +1,9 @@
 use scanner::scan;
 
+mod ast;
 mod scanner;
 mod token;
+mod visitor;
 
 fn main() {
     let mut args = std::env::args();
