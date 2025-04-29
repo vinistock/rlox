@@ -1,5 +1,5 @@
 use crate::ast::Node;
-use scanner::scan;
+use scanner::Scanner;
 
 mod ast;
 mod parser;
@@ -44,17 +44,25 @@ fn run_interactively() {
 
 fn run(code: String) {
     let mut errors: Vec<String> = Vec::new();
-    let tokens = scan(&code, &mut errors).unwrap_or_else(|_| {
-        eprintln!("Error scanning code: {:?}", errors);
+
+    let tokens = {
+        let mut scanner = Scanner::new(&code, &mut errors);
+        scanner.scan();
+        scanner.into_tokens()
+    };
+
+    if !errors.is_empty() {
+        for error in &errors {
+            eprintln!("Error: {}", error);
+        }
         std::process::exit(1);
-    });
+    }
 
     let mut parser = parser::Parser::new(tokens, &mut errors);
     let expression = parser.parse();
 
     if errors.is_empty() {
-        let printer = visitor::AstPrinter;
-        println!("{}", expression.accept(&printer));
+        println!("{}", expression.accept(&visitor::AstPrinter));
     } else {
         for error in errors {
             eprintln!("Error: {}", error);

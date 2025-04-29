@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::token::*;
 
 pub struct Scanner<'a> {
-    tokens: &'a mut Vec<Token>,
+    tokens: Vec<Token>,
     errors: &'a mut Vec<String>,
     source: &'a str,
     start: usize,
@@ -13,11 +13,7 @@ pub struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-    pub fn new(
-        source: &'a str,
-        tokens: &'a mut Vec<Token>,
-        errors: &'a mut Vec<String>,
-    ) -> Scanner<'a> {
+    pub fn new(source: &'a str, errors: &'a mut Vec<String>) -> Scanner<'a> {
         let mut keywords: HashMap<String, TokenType> = HashMap::new();
         keywords.insert("and".to_string(), TokenType::And);
         keywords.insert("class".to_string(), TokenType::Class);
@@ -37,7 +33,7 @@ impl<'a> Scanner<'a> {
         keywords.insert("while".to_string(), TokenType::While);
 
         Scanner {
-            tokens,
+            tokens: Vec::new(),
             errors,
             source,
             start: 0,
@@ -57,6 +53,10 @@ impl<'a> Scanner<'a> {
 
         self.tokens
             .push(Token::new(TokenType::Eof, "".to_string(), self.line));
+    }
+
+    pub fn into_tokens(self) -> Vec<Token> {
+        self.tokens
     }
 
     fn scan_token(&mut self, chars: &mut std::iter::Peekable<std::str::Chars>) {
@@ -255,20 +255,16 @@ impl<'a> Scanner<'a> {
     }
 }
 
-pub fn scan(source: &str, errors: &mut Vec<String>) -> Result<Vec<Token>, ()> {
-    let mut tokens: Vec<Token> = Vec::new();
-    Scanner::new(source, &mut tokens, errors).scan();
-
-    if errors.is_empty() {
-        Ok(tokens)
-    } else {
-        Err(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn scan(source: &str) -> Vec<Token> {
+        let mut errors = Vec::new();
+        let mut scanner = Scanner::new(source, &mut errors);
+        scanner.scan();
+        scanner.into_tokens()
+    }
 
     #[test]
     fn test_scanning_single_character_tokens() {
@@ -288,7 +284,7 @@ mod tests {
 
         for (char, token_type) in map {
             let source = String::from(char);
-            let tokens = scan(&source, &mut Vec::new()).unwrap();
+            let tokens = scan(&source);
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].token_type, token_type);
         }
@@ -308,7 +304,7 @@ mod tests {
         ];
 
         for (source, token_type) in map {
-            let tokens = scan(&source, &mut Vec::new()).unwrap();
+            let tokens = scan(&source);
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].token_type, token_type);
         }
@@ -317,7 +313,7 @@ mod tests {
     #[test]
     fn test_scanning_comments() {
         let source = "// some content hello\n".to_string();
-        let tokens = scan(&source, &mut Vec::new()).unwrap();
+        let tokens = scan(&source);
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].token_type, TokenType::Eof);
     }
@@ -325,7 +321,7 @@ mod tests {
     #[test]
     fn test_scanning_strings() {
         let source = "\"some string content\"".to_string();
-        let tokens = scan(&source, &mut Vec::new()).unwrap();
+        let tokens = scan(&source);
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::String);
         assert_eq!(tokens[0].lexeme, "some string content".to_string());
@@ -334,7 +330,7 @@ mod tests {
     #[test]
     fn test_scanning_numbers() {
         let source = "123".to_string();
-        let tokens = scan(&source, &mut Vec::new()).unwrap();
+        let tokens = scan(&source);
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::Number);
         assert_eq!(tokens[0].lexeme, "123".to_string());
@@ -343,7 +339,7 @@ mod tests {
     #[test]
     fn test_scanning_numbers_with_fractional_values() {
         let source = "123.321".to_string();
-        let tokens = scan(&source, &mut Vec::new()).unwrap();
+        let tokens = scan(&source);
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::Number);
         assert_eq!(tokens[0].lexeme, "123.321".to_string());
@@ -352,7 +348,7 @@ mod tests {
     #[test]
     fn test_scanning_identifiers() {
         let source = "iDentifier_".to_string();
-        let tokens = scan(&source, &mut Vec::new()).unwrap();
+        let tokens = scan(&source);
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].token_type, TokenType::Identifier);
         assert_eq!(tokens[0].lexeme, "iDentifier_".to_string());
@@ -381,7 +377,7 @@ mod tests {
 
         for (keyword, token_type) in keywords {
             let source = keyword.clone();
-            let tokens = scan(&source, &mut Vec::new()).unwrap();
+            let tokens = scan(&source);
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].token_type, token_type);
             assert_eq!(tokens[0].lexeme, keyword);
