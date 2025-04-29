@@ -44,7 +44,7 @@ fn run_interactively() {
 
 fn run(code: String) {
     let mut errors: Vec<String> = Vec::new();
-    let tokens = scan(&code).unwrap_or_else(|errors| {
+    let tokens = scan(&code, &mut errors).unwrap_or_else(|_| {
         eprintln!("Error scanning code: {:?}", errors);
         std::process::exit(1);
     });
