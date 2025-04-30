@@ -44,8 +44,16 @@ impl Node for Grouping {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum LiteralValue {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+    Nil,
+}
+
 pub struct Literal {
-    pub value: String,
+    pub value: LiteralValue,
 }
 
 impl Node for Literal {

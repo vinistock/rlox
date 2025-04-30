@@ -1,4 +1,4 @@
-use crate::ast::{Binary, Grouping, Literal, Node, Unary};
+use crate::ast::{Binary, Grouping, Literal, LiteralValue, Node, Unary};
 
 pub trait Visitor {
     type Output;
@@ -15,7 +15,7 @@ impl Visitor for AstPrinter {
     fn visit_binary(&self, binary: &Binary) -> Self::Output {
         format!(
             "({} {} {})",
-            binary.operator.lexeme,
+            binary.operator.lexeme(),
             binary.left.accept(self),
             binary.right.accept(self)
         )
@@ -26,11 +26,16 @@ impl Visitor for AstPrinter {
     }
 
     fn visit_literal(&self, literal: &Literal) -> Self::Output {
-        literal.value.clone()
+        match literal.value {
+            LiteralValue::String(ref s) => s.clone(),
+            LiteralValue::Number(ref n) => n.to_string(),
+            LiteralValue::Boolean(ref b) => b.to_string(),
+            LiteralValue::Nil => "nil".to_string(),
+        }
     }
 
     fn visit_unary(&self, unary: &Unary) -> Self::Output {
-        format!("({} {})", unary.operator.lexeme, unary.right.accept(self))
+        format!("({} {})", unary.operator.lexeme(), unary.right.accept(self))
     }
 }
 
@@ -38,21 +43,17 @@ impl Visitor for AstPrinter {
 mod tests {
     use super::*;
     use crate::ast::Expr;
-    use crate::token::{Token, TokenType};
+    use crate::token::Token;
 
     #[test]
     fn test_ast_printer() {
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
-                value: "5".to_string(),
+                value: LiteralValue::String("5".to_string()),
             })),
-            operator: Box::new(Token {
-                token_type: TokenType::Plus,
-                lexeme: "+".to_string(),
-                line: 1,
-            }),
+            operator: Box::new(Token::Plus { line: 1 }),
             right: Box::new(Expr::Literal(Literal {
-                value: "3".to_string(),
+                value: LiteralValue::String("3".to_string()),
             })),
         };
 
@@ -64,23 +65,15 @@ mod tests {
     fn test_ast_printer_more_complex_case() {
         let expr = Binary {
             left: Box::new(Expr::Unary(Unary {
-                operator: Box::new(Token {
-                    token_type: TokenType::Minus,
-                    lexeme: "-".to_string(),
-                    line: 1,
-                }),
+                operator: Box::new(Token::Minus { line: 1 }),
                 right: Box::new(Expr::Literal(Literal {
-                    value: "123".to_string(),
+                    value: LiteralValue::String("123".to_string()),
                 })),
             })),
-            operator: Box::new(Token {
-                token_type: TokenType::Star,
-                lexeme: "*".to_string(),
-                line: 1,
-            }),
+            operator: Box::new(Token::Star { line: 1 }),
             right: Box::new(Expr::Grouping(Grouping {
                 expression: Box::new(Expr::Literal(Literal {
-                    value: "45.67".to_string(),
+                    value: LiteralValue::String("45.67".to_string()),
                 })),
             })),
         };

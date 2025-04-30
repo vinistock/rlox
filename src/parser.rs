@@ -1,6 +1,6 @@
 use crate::{
-    ast::{Binary, Expr, Grouping, Literal, Unary},
-    token::{Token, TokenType},
+    ast::{Binary, Expr, Grouping, Literal, LiteralValue, Unary},
+    token::Token,
 };
 
 pub struct Parser<'a> {
@@ -29,7 +29,13 @@ impl<'a> Parser<'a> {
     fn equality(&mut self) -> Expr {
         let mut expr = self.comparison();
 
-        while self.match_token(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
+        while let Some(token) = self.peek() {
+            match token {
+                Token::BangEqual { line: _ } | Token::EqualEqual { line: _ } => {
+                    self.advance();
+                }
+                _ => break,
+            }
             let operator = Box::new(self.previous().unwrap().clone());
             let right = self.comparison();
 
@@ -44,37 +50,16 @@ impl<'a> Parser<'a> {
     }
 
     fn advance(&mut self) -> Option<&Token> {
-        if !self.is_at_end() {
-            self.current += 1;
+        if let Some(token) = self.peek() {
+            match token {
+                Token::Eof => {}
+                _ => {
+                    self.current += 1;
+                }
+            }
         }
 
         self.previous()
-    }
-
-    fn match_token(&mut self, types: Vec<TokenType>) -> bool {
-        let matches = types.iter().any(|&token_type| self.check(token_type));
-        if matches {
-            self.advance();
-        }
-        matches
-    }
-
-    fn check(&self, token_type: TokenType) -> bool {
-        if self.is_at_end() {
-            return false;
-        }
-
-        match self.peek() {
-            Some(token) => token.token_type == token_type,
-            None => false,
-        }
-    }
-
-    fn is_at_end(&self) -> bool {
-        match self.peek() {
-            Some(token) => token.token_type == TokenType::Eof,
-            None => true,
-        }
     }
 
     fn peek(&self) -> Option<&Token> {
@@ -88,12 +73,17 @@ impl<'a> Parser<'a> {
     fn comparison(&mut self) -> Expr {
         let mut expr = self.term();
 
-        while self.match_token(vec![
-            TokenType::Greater,
-            TokenType::GreaterEqual,
-            TokenType::Less,
-            TokenType::LessEqual,
-        ]) {
+        while let Some(token) = self.peek() {
+            match token {
+                Token::Greater { line: _ }
+                | Token::GreaterEqual { line: _ }
+                | Token::Less { line: _ }
+                | Token::LessEqual { line: _ } => {
+                    self.advance();
+                }
+                _ => break,
+            }
+
             let operator = Box::new(self.previous().unwrap().clone());
             let right = self.term();
 
@@ -110,7 +100,14 @@ impl<'a> Parser<'a> {
     fn term(&mut self) -> Expr {
         let mut expr = self.factor();
 
-        while self.match_token(vec![TokenType::Minus, TokenType::Plus]) {
+        while let Some(token) = self.peek() {
+            match token {
+                Token::Minus { line: _ } | Token::Plus { line: _ } => {
+                    self.advance();
+                }
+                _ => break,
+            }
+
             let operator = Box::new(self.previous().unwrap().clone());
             let right = self.factor();
 
@@ -127,7 +124,14 @@ impl<'a> Parser<'a> {
     fn factor(&mut self) -> Expr {
         let mut expr = self.unary();
 
-        while self.match_token(vec![TokenType::Slash, TokenType::Star]) {
+        while let Some(token) = self.peek() {
+            match token {
+                Token::Slash { line: _ } | Token::Star { line: _ } => {
+                    self.advance();
+                }
+                _ => break,
+            }
+
             let operator = Box::new(self.previous().unwrap().clone());
             let right = self.unary();
 
@@ -142,66 +146,75 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> Expr {
-        if self.match_token(vec![TokenType::Bang, TokenType::Minus]) {
-            let operator = Box::new(self.previous().unwrap().clone());
-            let right = self.unary();
+        match self.peek() {
+            Some(Token::Bang { line: _ } | Token::Minus { line: _ }) => {
+                self.advance();
+                let operator = Box::new(self.previous().unwrap().clone());
+                let right = self.unary();
 
-            return Expr::Unary(Unary {
-                operator,
-                right: Box::new(right),
-            });
+                Expr::Unary(Unary {
+                    operator,
+                    right: Box::new(right),
+                })
+            }
+            _ => self.primary(),
         }
-
-        self.primary()
     }
 
     fn primary(&mut self) -> Expr {
-        if self.match_token(vec![TokenType::False]) {
-            return Expr::Literal(Literal {
-                value: "false".to_string(),
-            });
-        }
+        match self.peek() {
+            Some(Token::False { value, line: _ } | Token::True { value, line: _ }) => {
+                let deref_value = *value;
+                self.advance();
+                return Expr::Literal(Literal {
+                    value: LiteralValue::Boolean(deref_value),
+                });
+            }
+            Some(Token::Nil { line: _ }) => {
+                self.advance();
+                return Expr::Literal(Literal {
+                    value: LiteralValue::Nil,
+                });
+            }
+            Some(Token::Number { value, line: _ }) => {
+                let deref_value = *value;
+                self.advance();
+                return Expr::Literal(Literal {
+                    value: LiteralValue::Number(deref_value),
+                });
+            }
+            Some(Token::LeftParen { line: _ }) => {
+                self.advance();
+                let expr = Box::new(self.expression());
 
-        if self.match_token(vec![TokenType::True]) {
-            return Expr::Literal(Literal {
-                value: "true".to_string(),
-            });
-        }
+                match self.peek() {
+                    Some(token) => match token {
+                        Token::RightParen { line: _ } => {
+                            self.advance();
+                        }
+                        other => {
+                            self.errors.push(format!(
+                                "[line {}] Error at '(': Expect ')' after expression.",
+                                other.line()
+                            ));
+                        }
+                    },
+                    None => {
+                        self.errors.push(format!(
+                            "[line {}] Error: Expected ')' after expression.",
+                            self.previous().unwrap().line()
+                        ));
+                    }
+                }
 
-        if self.match_token(vec![TokenType::Nil]) {
-            return Expr::Literal(Literal {
-                value: "null".to_string(),
-            });
-        }
-
-        if self.match_token(vec![TokenType::Number, TokenType::String]) {
-            return Expr::Literal(Literal {
-                value: self.previous().unwrap().lexeme.clone(),
-            });
-        }
-
-        if self.match_token(vec![TokenType::LeftParen]) {
-            let expr = Box::new(self.expression());
-            self.consume(TokenType::RightParen, "Expect ')' after expression.");
-            return Expr::Grouping(Grouping { expression: expr });
+                return Expr::Grouping(Grouping { expression: expr });
+            }
+            _ => {}
         }
 
         Expr::Literal(Literal {
-            value: "null".to_string(),
+            value: LiteralValue::Nil,
         })
-    }
-
-    fn consume(&mut self, token_type: TokenType, message: &str) -> Option<&Token> {
-        if self.check(token_type) {
-            self.advance()
-        } else {
-            let token = self.peek().unwrap();
-            self.errors.push(format!(
-                "[line {}] Error at '{}': {}",
-                token.line, token.lexeme, message
-            ));
-            None
-        }
     }
 
     // fn synchronize(&mut self) {
