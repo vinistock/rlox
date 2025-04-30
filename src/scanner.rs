@@ -39,24 +39,19 @@ impl<'a> Scanner<'a> {
 
     fn scan_token(&mut self, chars: &mut std::iter::Peekable<std::str::Chars>) {
         let char = self.advance(chars);
-        if char.is_none() {
-            return;
-        }
 
-        let character = char.unwrap();
-
-        match character {
-            '(' => self.add_token(TokenType::LeftParen),
-            ')' => self.add_token(TokenType::RightParen),
-            '{' => self.add_token(TokenType::LeftBrace),
-            '}' => self.add_token(TokenType::RightBrace),
-            ',' => self.add_token(TokenType::Comma),
-            '.' => self.add_token(TokenType::Dot),
-            '-' => self.add_token(TokenType::Minus),
-            '+' => self.add_token(TokenType::Plus),
-            ';' => self.add_token(TokenType::Semicolon),
-            '*' => self.add_token(TokenType::Star),
-            '!' => {
+        match char {
+            Some('(') => self.add_token(TokenType::LeftParen),
+            Some(')') => self.add_token(TokenType::RightParen),
+            Some('{') => self.add_token(TokenType::LeftBrace),
+            Some('}') => self.add_token(TokenType::RightBrace),
+            Some(',') => self.add_token(TokenType::Comma),
+            Some('.') => self.add_token(TokenType::Dot),
+            Some('-') => self.add_token(TokenType::Minus),
+            Some('+') => self.add_token(TokenType::Plus),
+            Some(';') => self.add_token(TokenType::Semicolon),
+            Some('*') => self.add_token(TokenType::Star),
+            Some('!') => {
                 let token_type = if self.match_char('=', chars) {
                     TokenType::BangEqual
                 } else {
@@ -64,7 +59,7 @@ impl<'a> Scanner<'a> {
                 };
                 self.add_token(token_type);
             }
-            '=' => {
+            Some('=') => {
                 let token_type = if self.match_char('=', chars) {
                     TokenType::EqualEqual
                 } else {
@@ -72,7 +67,7 @@ impl<'a> Scanner<'a> {
                 };
                 self.add_token(token_type);
             }
-            '<' => {
+            Some('<') => {
                 let token_type = if self.match_char('=', chars) {
                     TokenType::LessEqual
                 } else {
@@ -80,7 +75,7 @@ impl<'a> Scanner<'a> {
                 };
                 self.add_token(token_type);
             }
-            '>' => {
+            Some('>') => {
                 let token_type = if self.match_char('=', chars) {
                     TokenType::GreaterEqual
                 } else {
@@ -88,7 +83,7 @@ impl<'a> Scanner<'a> {
                 };
                 self.add_token(token_type);
             }
-            '/' => {
+            Some('/') => {
                 if self.match_char('/', chars) {
                     let comment = chars.take_while(|&c| c != '\n');
                     self.current += comment.map(|c| c.len_utf8()).sum::<usize>();
@@ -97,23 +92,24 @@ impl<'a> Scanner<'a> {
                     self.add_token(TokenType::Slash);
                 }
             }
-            ' ' | '\r' | '\t' => {}
-            '\n' => {
+            Some(' ') | Some('\r') | Some('\t') => {}
+            Some('\n') => {
                 self.line += 1;
             }
-            '"' => self.string(chars),
-            _ => {
-                if character.is_ascii_digit() {
-                    self.number(chars);
-                } else if character.is_alphanumeric() || character == '_' {
-                    self.identifier(chars);
-                } else {
-                    self.errors.push(format!(
-                        "Unexpected character '{}' at line {}",
-                        character, self.line
-                    ));
-                }
+            Some('"') => self.string(chars),
+            Some(c) if c.is_ascii_digit() => {
+                self.number(chars);
             }
+            Some(c) if c.is_alphanumeric() || c == '_' => {
+                self.identifier(chars);
+            }
+            Some(c) => {
+                self.errors.push(format!(
+                    "Unexpected character '{}' at line {}",
+                    c, self.line
+                ));
+            }
+            None => {}
         }
     }
 
@@ -166,6 +162,7 @@ impl<'a> Scanner<'a> {
                 let digits = chars
                     .take_while(|&c| c.is_ascii_digit())
                     .collect::<String>();
+
                 self.current += digits.len();
             }
         }

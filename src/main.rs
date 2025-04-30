@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use crate::ast::Node;
 use scanner::Scanner;
 
@@ -29,11 +31,20 @@ fn run_file(path: String) {
 
 fn run_interactively() {
     loop {
+        print!("ilox> ");
+        std::io::stdout().flush().unwrap();
         let mut input = String::new();
-        print!("> ");
+
         match std::io::stdin().read_line(&mut input) {
             Ok(0) => break, // EOF
-            Ok(_) => run(input),
+            Ok(_) => {
+                let command = input.trim();
+                if command == "exit" || command == "quit" {
+                    break;
+                }
+
+                run(input);
+            }
             Err(err) => {
                 eprintln!("Error reading input: {}", err);
                 break;
@@ -62,7 +73,7 @@ fn run(code: String) {
     let expression = parser.parse();
 
     if errors.is_empty() {
-        println!("{}", expression.accept(&visitor::AstPrinter));
+        println!("=> {}", expression.accept(&visitor::AstPrinter));
     } else {
         for error in errors {
             eprintln!("Error: {}", error);

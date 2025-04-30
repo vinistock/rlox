@@ -204,29 +204,29 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn synchronize(&mut self) {
-        self.advance();
+    // fn synchronize(&mut self) {
+    //     self.advance();
 
-        while !self.is_at_end() {
-            if self.previous().unwrap().token_type == TokenType::Semicolon {
-                return;
-            }
+    //     while !self.is_at_end() {
+    //         if self.previous().unwrap().token_type == TokenType::Semicolon {
+    //             return;
+    //         }
 
-            match self.peek().unwrap().token_type {
-                TokenType::Class
-                | TokenType::For
-                | TokenType::Fun
-                | TokenType::If
-                | TokenType::While
-                | TokenType::Print
-                | TokenType::Return
-                | TokenType::Var => {
-                    return;
-                }
-                _ => {}
-            }
+    //         match self.peek().unwrap().token_type {
+    //             TokenType::Class
+    //             | TokenType::For
+    //             | TokenType::Fun
+    //             | TokenType::If
+    //             | TokenType::While
+    //             | TokenType::Print
+    //             | TokenType::Return
+    //             | TokenType::Var => {
+    //                 return;
+    //             }
+    //             _ => {}
+    //         }
 
-            self.advance();
-        }
-    }
+    //         self.advance();
+    //     }
+    // }
 }
