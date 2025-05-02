@@ -3,9 +3,9 @@ use crate::ast::{Binary, Grouping, Literal, LiteralValue, Node, Unary};
 pub trait Visitor {
     type Output;
     fn visit_binary(&self, binary: &Binary) -> Self::Output;
-    fn visit_grouping(&self, binary: &Grouping) -> Self::Output;
-    fn visit_literal(&self, binary: &Literal) -> Self::Output;
-    fn visit_unary(&self, binary: &Unary) -> Self::Output;
+    fn visit_grouping(&self, grouping: &Grouping) -> Self::Output;
+    fn visit_literal(&self, literal: &Literal) -> Self::Output;
+    fn visit_unary(&self, unary: &Unary) -> Self::Output;
 }
 
 pub struct AstPrinter;
