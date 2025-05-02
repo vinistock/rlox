@@ -15,9 +15,15 @@ fn main() {
     let mut args = std::env::args();
 
     match args.nth(1) {
-        Some(arg) => run_file(arg),
-        None => run_interactively(),
+        Some(arg) if arg == "--help" => print_help(),
+        Some(arg) if !arg.starts_with("--") => run_file(arg),
+        Some(arg) => run_interactively(Some(arg)),
+        None => run_interactively(None),
     }
+}
+
+fn print_help() {
+    println!("Usage: [file_path] [--print-tokens | --print-ast]");
 }
 
 fn run_file(path: String) {
@@ -28,10 +34,10 @@ fn run_file(path: String) {
             std::process::exit(1);
         }
     };
-    run(contents);
+    run(contents, &None);
 }
 
-fn run_interactively() {
+fn run_interactively(arg: Option<String>) {
     loop {
         print!("ilox> ");
         std::io::stdout().flush().unwrap();
@@ -45,7 +51,7 @@ fn run_interactively() {
                     break;
                 }
 
-                run(input);
+                run(input, &arg);
             }
             Err(err) => {
                 eprintln!("Error reading input: {}", err);
@@ -55,12 +61,28 @@ fn run_interactively() {
     }
 }
 
-fn run(code: String) {
+fn run(code: String, arg: &Option<String>) {
     let mut errors: Vec<String> = Vec::new();
-    let tokens = scan(code, &mut errors);
-    let expression = parse(tokens, errors);
 
-    // println!("=> {}", expression.accept(&visitor::AstPrinter));
+    // Scanning
+    let tokens = scan(code, &mut errors);
+    match arg {
+        Some(arg) if arg == "--print-tokens" => {
+            println!("{:?}", tokens);
+            return;
+        }
+        _ => {}
+    }
+
+    // Parsing
+    let expression = parse(tokens, errors);
+    match arg {
+        Some(arg) if arg == "--print-ast" => {
+            println!("=> {}", expression.accept(&visitor::AstPrinter));
+            return;
+        }
+        _ => {}
+    }
 
     let result = expression.accept(&Vm);
     match result {
