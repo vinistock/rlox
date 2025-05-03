@@ -1,4 +1,4 @@
-use crate::ast::{Binary, Grouping, Literal, LiteralValue, Node, Unary};
+use crate::ast::{Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary};
 
 pub trait Visitor {
     type Output;
@@ -8,10 +8,16 @@ pub trait Visitor {
     fn visit_unary(&self, unary: &Unary) -> Self::Output;
 }
 
+pub trait StatementVisitor {
+    type Output;
+    fn visit_statement(&self, statement: &Statement) -> Self::Output;
+}
+
 pub struct AstPrinter;
 
 impl Visitor for AstPrinter {
     type Output = String;
+
     fn visit_binary(&self, binary: &Binary) -> Self::Output {
         format!(
             "({} {} {})",
@@ -36,6 +42,17 @@ impl Visitor for AstPrinter {
 
     fn visit_unary(&self, unary: &Unary) -> Self::Output {
         format!("({} {})", unary.operator.lexeme(), unary.right.accept(self))
+    }
+}
+
+impl StatementVisitor for AstPrinter {
+    type Output = String;
+
+    fn visit_statement(&self, statement: &Statement) -> Self::Output {
+        match statement {
+            Statement::Expression(expr) => expr.expression.accept(self),
+            Statement::Print(print_stmt) => format!("print {}", print_stmt.expression.accept(self)),
+        }
     }
 }
 

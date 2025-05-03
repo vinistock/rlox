@@ -1,6 +1,7 @@
 use std::io::Write;
 
-use crate::ast::Node;
+use crate::ast::Stmt;
+use ast::Statement;
 use scanner::Scanner;
 use vm::Vm;
 
@@ -75,28 +76,32 @@ fn run(code: String, arg: &Option<String>) {
     }
 
     // Parsing
-    let expression = parse(tokens, errors);
+    let statements = parse(tokens, errors);
     match arg {
         Some(arg) if arg == "--print-ast" => {
-            println!("=> {}", expression.accept(&visitor::AstPrinter));
+            let formatted = statements
+                .iter()
+                .map(|stmt| stmt.accept(&visitor::AstPrinter))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            println!("=> {}", formatted);
             return;
         }
         _ => {}
     }
 
-    let result = expression.accept(&Vm);
-    match result {
-        Ok(value) => println!("=> {}", value),
-        Err(err) => {
+    for statement in statements {
+        statement.accept(&Vm).unwrap_or_else(|err| {
             eprintln!("Runtime error: {}", err);
             std::process::exit(1);
-        }
+        });
     }
 }
 
-fn parse(tokens: Vec<token::Token>, mut errors: Vec<String>) -> ast::Expr {
+fn parse(tokens: Vec<token::Token>, mut errors: Vec<String>) -> Vec<Statement> {
     let mut parser = parser::Parser::new(tokens, &mut errors);
-    let expression = parser.parse();
+    let statements = parser.parse();
 
     if !errors.is_empty() {
         for error in errors {
@@ -104,7 +109,7 @@ fn parse(tokens: Vec<token::Token>, mut errors: Vec<String>) -> ast::Expr {
         }
         std::process::exit(1);
     }
-    expression
+    statements
 }
 
 fn scan(code: String, errors: &mut Vec<String>) -> Vec<token::Token> {

@@ -1,4 +1,30 @@
-use crate::{token::Token, visitor::Visitor};
+use crate::{
+    token::Token,
+    visitor::{StatementVisitor, Visitor},
+};
+
+pub enum Statement {
+    Expression(ExpressionStatement),
+    Print(PrintStatement),
+}
+
+pub struct ExpressionStatement {
+    pub expression: Box<Expr>,
+}
+
+pub struct PrintStatement {
+    pub expression: Box<Expr>,
+}
+
+pub trait Stmt {
+    fn accept<T: StatementVisitor>(&self, visitor: &T) -> T::Output;
+}
+
+impl Stmt for Statement {
+    fn accept<T: StatementVisitor>(&self, visitor: &T) -> T::Output {
+        visitor.visit_statement(self)
+    }
+}
 
 pub enum Expr {
     Binary(Binary),
@@ -15,9 +41,9 @@ impl Node for Expr {
     fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
         match self {
             Expr::Binary(expr) => expr.accept(visitor),
-            Expr::Grouping(expr) => expr.accept(visitor),
-            Expr::Literal(expr) => expr.accept(visitor),
-            Expr::Unary(expr) => expr.accept(visitor),
+            Expr::Grouping(grouping) => grouping.accept(visitor),
+            Expr::Literal(literal) => literal.accept(visitor),
+            Expr::Unary(unary) => unary.accept(visitor),
         }
     }
 }

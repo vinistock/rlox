@@ -1,7 +1,7 @@
 use crate::{
-    ast::{Binary, Grouping, Literal, LiteralValue, Node, Unary},
+    ast::{Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary},
     token::Token,
-    visitor::Visitor,
+    visitor::{StatementVisitor, Visitor},
 };
 
 pub struct Vm;
@@ -230,6 +230,25 @@ impl Visitor for Vm {
         }
     }
 }
+
+impl StatementVisitor for Vm {
+    type Output = Result<(), RuntimeError>;
+
+    fn visit_statement(&self, statement: &Statement) -> Self::Output {
+        match statement {
+            Statement::Expression(expr) => {
+                expr.expression.accept(self)?;
+                Ok(())
+            }
+            Statement::Print(expr) => {
+                let value = expr.expression.accept(self)?;
+                println!("{}", value);
+                Ok(())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ast::Expr;
