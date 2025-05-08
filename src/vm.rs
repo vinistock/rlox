@@ -177,7 +177,7 @@ impl std::cmp::PartialOrd for Value {
 impl Vm {
     pub fn new() -> Self {
         Vm {
-            environment: Environment::new(),
+            environment: Environment::new(None),
         }
     }
 
