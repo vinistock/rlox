@@ -1,10 +1,22 @@
 use crate::{
     ast::{
         Binary, Expr, ExpressionStatement, Grouping, Literal, LiteralValue, PrintStatement,
-        Statement, Unary,
+        Statement, Unary, Variable, VariableStatement,
     },
     token::Token,
 };
+
+pub enum ParseError {
+    ExpectedTokenError(String),
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::ExpectedTokenError(msg) => write!(f, "{}", msg),
+        }
+    }
+}
 
 pub struct Parser<'a> {
     current: usize,
@@ -27,16 +39,65 @@ impl<'a> Parser<'a> {
         while let Some(token) = self.peek() {
             match token {
                 Token::Eof => break,
-                _ => {
-                    statements.push(self.statement());
-                }
+                _ => match self.declaration() {
+                    Ok(statement) => statements.push(statement),
+                    Err(e) => {
+                        self.errors.push(format!("{}", e));
+                        self.synchronize();
+                    }
+                },
             }
         }
 
         statements
     }
 
-    fn statement(&mut self) -> Statement {
+    fn declaration(&mut self) -> Result<Statement, ParseError> {
+        match self.peek() {
+            Some(Token::Var { line: _ }) => {
+                self.advance();
+                self.var_declaration()
+            }
+            _ => self.statement(),
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Statement, ParseError> {
+        let identifier = match self.advance() {
+            Some(Token::Identifier(token)) => Ok(token.clone()),
+            other => Err(ParseError::ExpectedTokenError(format!(
+                "[line {}] Error: Expected variable name.",
+                other.unwrap().line()
+            ))),
+        }?;
+
+        let initializer = match self.peek() {
+            Some(Token::Equal { line: _ }) => {
+                self.advance();
+                Ok(self.expression())
+            }
+            _ => Err(ParseError::ExpectedTokenError(format!(
+                "[line {}] Error: Expected '=' after variable name.",
+                identifier.line
+            ))),
+        }?;
+
+        match self.peek() {
+            Some(Token::Semicolon { line: _ }) => {
+                self.advance();
+                Ok(Statement::Variable(VariableStatement {
+                    name: Box::new(identifier),
+                    value: Box::new(initializer),
+                }))
+            }
+            _ => Err(ParseError::ExpectedTokenError(format!(
+                "[line {}] Error: Expected ';' after variable declaration.",
+                identifier.line
+            ))),
+        }
+    }
+
+    fn statement(&mut self) -> Result<Statement, ParseError> {
         match self.peek() {
             Some(Token::Print { line: _ }) => {
                 self.advance();
@@ -46,44 +107,47 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn print_statement(&mut self) -> Statement {
+    fn print_statement(&mut self) -> Result<Statement, ParseError> {
         let value = self.expression();
 
         match self.peek() {
             Some(Token::Semicolon { line: _ }) => {
                 self.advance();
+
+                Ok(Statement::Print(PrintStatement {
+                    expression: Box::new(value),
+                }))
             }
             _ => {
-                self.errors.push(format!(
+                let message = format!(
                     "[line {}] Error: Expected ';' after value.",
                     self.previous().unwrap().line()
-                ));
+                );
+                self.errors.push(message.clone());
+                Err(ParseError::ExpectedTokenError(message))
             }
         }
-
-        Statement::Print(PrintStatement {
-            expression: Box::new(value),
-        })
     }
 
-    fn expression_statement(&mut self) -> Statement {
+    fn expression_statement(&mut self) -> Result<Statement, ParseError> {
         let value = self.expression();
 
         match self.peek() {
             Some(Token::Semicolon { line: _ }) => {
                 self.advance();
+                Ok(Statement::Expression(ExpressionStatement {
+                    expression: Box::new(value),
+                }))
             }
             _ => {
-                self.errors.push(format!(
+                let message = format!(
                     "[line {}] Error: Expected ';' after value.",
                     self.previous().unwrap().line()
-                ));
+                );
+                self.errors.push(message.clone());
+                Err(ParseError::ExpectedTokenError(message))
             }
         }
-
-        Statement::Expression(ExpressionStatement {
-            expression: Box::new(value),
-        })
     }
 
     fn expression(&mut self) -> Expr {
@@ -247,6 +311,13 @@ impl<'a> Parser<'a> {
                     value: LiteralValue::Number(deref_value),
                 });
             }
+            Some(Token::Identifier(token)) => {
+                let variable_expr = Expr::Variable(Variable {
+                    token: Box::new(token.clone()),
+                });
+                self.advance();
+                return variable_expr;
+            }
             Some(Token::LeftParen { line: _ }) => {
                 self.advance();
                 let expr = Box::new(self.expression());
@@ -281,35 +352,36 @@ impl<'a> Parser<'a> {
         })
     }
 
-    // fn synchronize(&mut self) {
-    //     self.advance();
+    fn synchronize(&mut self) {
+        self.advance();
 
-    //     while !self.is_at_end() {
-    //         if self.previous().unwrap().token_type == TokenType::Semicolon {
-    //             return;
-    //         }
+        while let Some(token) = self.peek() {
+            if let Some(Token::Semicolon { line: _ }) = self.previous() {
+                break;
+            }
 
-    //         match self.peek().unwrap().token_type {
-    //             TokenType::Class
-    //             | TokenType::For
-    //             | TokenType::Fun
-    //             | TokenType::If
-    //             | TokenType::While
-    //             | TokenType::Print
-    //             | TokenType::Return
-    //             | TokenType::Var => {
-    //                 return;
-    //             }
-    //             _ => {}
-    //         }
+            match token {
+                Token::Eof
+                | Token::Class { line: _ }
+                | Token::Fun { line: _ }
+                | Token::Var { line: _ }
+                | Token::For { line: _ }
+                | Token::If { line: _ }
+                | Token::While { line: _ }
+                | Token::Print { line: _ }
+                | Token::Return { line: _ } => break,
+                _ => {}
+            }
 
-    //         self.advance();
-    //     }
-    // }
+            self.advance();
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::token::Identifier;
+
     use super::*;
 
     #[test]
@@ -384,7 +456,66 @@ mod tests {
         let mut parser = Parser::new(tokens, &mut errors);
         parser.parse();
 
-        assert_eq!(errors.len(), 1);
+        assert_eq!(errors.len(), 2);
         assert_eq!(errors[0], "[line 1] Error: Expected ';' after value.");
+    }
+
+    #[test]
+    fn test_parsing_a_print_statement() {
+        let tokens = vec![
+            Token::Print { line: 1 },
+            Token::Identifier(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            Token::Plus { line: 1 },
+            Token::Identifier(Identifier {
+                value: "y".to_string(),
+                line: 1,
+            }),
+            Token::Semicolon { line: 1 },
+            Token::Eof,
+        ];
+
+        let mut errors = Vec::new();
+        let mut parser = Parser::new(tokens, &mut errors);
+        let result = parser.parse();
+
+        assert_eq!(errors.len(), 0, "Expected no errors, but got: {:?}", errors);
+        assert_eq!(result.len(), 1);
+
+        match &result[0] {
+            Statement::Print(print_stmt) => match *print_stmt.expression {
+                Expr::Binary(ref binary) => {
+                    match *binary.left {
+                        Expr::Variable(ref var) => {
+                            assert_eq!(
+                                var.token,
+                                Box::new(Identifier {
+                                    value: "x".to_string(),
+                                    line: 1
+                                })
+                            );
+                        }
+                        _ => panic!("Expected a variable expression."),
+                    }
+                    assert_eq!(binary.operator, Box::new(Token::Plus { line: 1 }));
+                    match *binary.right {
+                        Expr::Variable(ref var) => {
+                            assert_eq!(
+                                var.token,
+                                Box::new(Identifier {
+                                    value: "y".to_string(),
+                                    line: 1
+                                })
+                            );
+                        }
+                        _ => panic!("Expected a variable expression."),
+                    }
+                }
+                _ => panic!("Expected a literal expression."),
+            },
+            _ => panic!("Expected a print statement."),
+        }
     }
 }

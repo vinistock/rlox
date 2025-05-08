@@ -6,6 +6,7 @@ use scanner::Scanner;
 use vm::Vm;
 
 mod ast;
+mod environment;
 mod parser;
 mod scanner;
 mod token;
@@ -28,6 +29,7 @@ fn print_help() {
 }
 
 fn run_file(path: String) {
+    let mut vm = Vm::new();
     let contents = match std::fs::read_to_string(&path) {
         Ok(contents) => contents,
         Err(err) => {
@@ -35,10 +37,12 @@ fn run_file(path: String) {
             std::process::exit(1);
         }
     };
-    run(contents, &None);
+    run(contents, &None, &mut vm);
 }
 
 fn run_interactively(arg: Option<String>) {
+    let mut vm = Vm::new();
+
     loop {
         print!("ilox> ");
         std::io::stdout().flush().unwrap();
@@ -52,7 +56,7 @@ fn run_interactively(arg: Option<String>) {
                     break;
                 }
 
-                run(input, &arg);
+                run(input, &arg, &mut vm);
             }
             Err(err) => {
                 eprintln!("Error reading input: {}", err);
@@ -62,7 +66,7 @@ fn run_interactively(arg: Option<String>) {
     }
 }
 
-fn run(code: String, arg: &Option<String>) {
+fn run(code: String, arg: &Option<String>, vm: &mut Vm) {
     let mut errors: Vec<String> = Vec::new();
 
     // Scanning
@@ -81,7 +85,7 @@ fn run(code: String, arg: &Option<String>) {
         Some(arg) if arg == "--print-ast" => {
             let formatted = statements
                 .iter()
-                .map(|stmt| stmt.accept(&visitor::AstPrinter))
+                .map(|stmt| stmt.accept(&mut visitor::AstPrinter))
                 .collect::<Vec<_>>()
                 .join("\n");
 
@@ -92,7 +96,7 @@ fn run(code: String, arg: &Option<String>) {
     }
 
     for statement in statements {
-        statement.accept(&Vm).unwrap_or_else(|err| {
+        statement.accept(vm).unwrap_or_else(|err| {
             eprintln!("Runtime error: {}", err);
             std::process::exit(1);
         });

@@ -1,11 +1,12 @@
 use crate::{
-    token::Token,
+    token::{Identifier, Token},
     visitor::{StatementVisitor, Visitor},
 };
 
 pub enum Statement {
     Expression(ExpressionStatement),
     Print(PrintStatement),
+    Variable(VariableStatement),
 }
 
 pub struct ExpressionStatement {
@@ -16,12 +17,17 @@ pub struct PrintStatement {
     pub expression: Box<Expr>,
 }
 
+pub struct VariableStatement {
+    pub name: Box<Identifier>,
+    pub value: Box<Expr>,
+}
+
 pub trait Stmt {
-    fn accept<T: StatementVisitor>(&self, visitor: &T) -> T::Output;
+    fn accept<T: StatementVisitor>(&self, visitor: &mut T) -> T::Output;
 }
 
 impl Stmt for Statement {
-    fn accept<T: StatementVisitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: StatementVisitor>(&self, visitor: &mut T) -> T::Output {
         visitor.visit_statement(self)
     }
 }
@@ -31,6 +37,7 @@ pub enum Expr {
     Grouping(Grouping),
     Literal(Literal),
     Unary(Unary),
+    Variable(Variable),
 }
 
 pub trait Node {
@@ -40,10 +47,11 @@ pub trait Node {
 impl Node for Expr {
     fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
         match self {
-            Expr::Binary(expr) => expr.accept(visitor),
-            Expr::Grouping(grouping) => grouping.accept(visitor),
-            Expr::Literal(literal) => literal.accept(visitor),
-            Expr::Unary(unary) => unary.accept(visitor),
+            Expr::Binary(it) => it.accept(visitor),
+            Expr::Grouping(it) => it.accept(visitor),
+            Expr::Literal(it) => it.accept(visitor),
+            Expr::Unary(it) => it.accept(visitor),
+            Expr::Variable(it) => it.accept(visitor),
         }
     }
 }
@@ -77,7 +85,6 @@ pub enum LiteralValue {
     Boolean(bool),
     Nil,
 }
-
 pub struct Literal {
     pub value: LiteralValue,
 }
@@ -87,7 +94,6 @@ impl Node for Literal {
         visitor.visit_literal(self)
     }
 }
-
 pub struct Unary {
     pub operator: Box<Token>,
     pub right: Box<Expr>,
@@ -96,5 +102,14 @@ pub struct Unary {
 impl Node for Unary {
     fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
         visitor.visit_unary(self)
+    }
+}
+pub struct Variable {
+    pub token: Box<Identifier>,
+}
+
+impl Node for Variable {
+    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+        visitor.visit_variable(self)
     }
 }

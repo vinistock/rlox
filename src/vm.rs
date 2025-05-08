@@ -1,16 +1,20 @@
 use crate::{
-    ast::{Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary},
+    ast::{Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary, Variable},
+    environment::Environment,
     token::Token,
     visitor::{StatementVisitor, Visitor},
 };
 
-pub struct Vm;
+pub struct Vm {
+    environment: Environment,
+}
 
 #[derive(Debug)]
 pub enum RuntimeError {
     ArgumentError(String),
     UnknownOperatorError(String),
     ZeroDivision(String),
+    UndefinedVariable(String),
 }
 
 impl std::fmt::Display for RuntimeError {
@@ -19,11 +23,12 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::ArgumentError(n) => write!(f, "{}", n),
             RuntimeError::UnknownOperatorError(s) => write!(f, "{}", s),
             RuntimeError::ZeroDivision(s) => write!(f, "{}", s),
+            RuntimeError::UndefinedVariable(s) => write!(f, "{}", s),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
     String(String),
@@ -170,6 +175,12 @@ impl std::cmp::PartialOrd for Value {
 }
 
 impl Vm {
+    pub fn new() -> Self {
+        Vm {
+            environment: Environment::new(),
+        }
+    }
+
     fn truthy(&self, value: &Value) -> bool {
         match value {
             Value::Nil => false,
@@ -204,6 +215,13 @@ impl Visitor for Vm {
         }
     }
 
+    fn visit_variable(&self, variable: &Variable) -> Self::Output {
+        match self.environment.get(&variable.token.value) {
+            Ok(value) => Ok(value.clone()),
+            Err(err) => Err(err),
+        }
+    }
+
     fn visit_grouping(&self, grouping: &Grouping) -> Self::Output {
         grouping.expression.accept(self)
     }
@@ -234,7 +252,7 @@ impl Visitor for Vm {
 impl StatementVisitor for Vm {
     type Output = Result<(), RuntimeError>;
 
-    fn visit_statement(&self, statement: &Statement) -> Self::Output {
+    fn visit_statement(&mut self, statement: &Statement) -> Self::Output {
         match statement {
             Statement::Expression(expr) => {
                 expr.expression.accept(self)?;
@@ -245,46 +263,56 @@ impl StatementVisitor for Vm {
                 println!("{}", value);
                 Ok(())
             }
+            Statement::Variable(var) => {
+                let value = var.value.accept(self)?;
+                self.environment.define(var.name.value.clone(), value);
+                Ok(())
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::Expr;
+    use crate::{
+        ast::{Expr, Stmt, VariableStatement},
+        token::Identifier,
+    };
 
     use super::*;
 
     #[test]
     fn test_evaluating_literals() {
+        let vm = Vm::new();
         let literal = Literal {
             value: LiteralValue::Number(42.0),
         };
-        let result = literal.accept(&Vm).unwrap();
+        let result = literal.accept(&vm).unwrap();
         assert_eq!(result, Value::Number(42.0));
 
         let literal = Literal {
             value: LiteralValue::String("Hello".to_string()),
         };
-        let result = literal.accept(&Vm).unwrap();
+        let result = literal.accept(&vm).unwrap();
         assert_eq!(result, Value::String("Hello".to_string()));
 
         let bool = Literal {
             value: LiteralValue::Boolean(true),
         };
-        let result = bool.accept(&Vm).unwrap();
+        let result = bool.accept(&vm).unwrap();
         assert_eq!(result, Value::Boolean(true))
     }
 
     #[test]
     fn test_evaluating_unary() {
+        let vm = Vm::new();
         let unary = Unary {
             operator: Box::new(Token::Minus { line: 1 }),
             right: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(42.0),
             })),
         };
-        let result = unary.accept(&Vm).unwrap();
+        let result = unary.accept(&vm).unwrap();
         assert_eq!(result, Value::Number(-42.0));
 
         let unary = Unary {
@@ -293,12 +321,13 @@ mod tests {
                 value: LiteralValue::Boolean(true),
             })),
         };
-        let result = unary.accept(&Vm).unwrap();
+        let result = unary.accept(&vm).unwrap();
         assert_eq!(result, Value::Boolean(false));
     }
 
     #[test]
     fn test_evaluating_number_addition() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(42.0),
@@ -308,12 +337,13 @@ mod tests {
                 value: LiteralValue::Number(58.0),
             })),
         };
-        let result = binary.accept(&Vm).unwrap();
+        let result = binary.accept(&vm).unwrap();
         assert_eq!(result, Value::Number(100.0));
     }
 
     #[test]
     fn test_evaluating_string_addition() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::String("Hello".to_string()),
@@ -323,12 +353,13 @@ mod tests {
                 value: LiteralValue::String(" World".to_string()),
             })),
         };
-        let result = binary.accept(&Vm).unwrap();
+        let result = binary.accept(&vm).unwrap();
         assert_eq!(result, Value::String("Hello World".to_string()));
     }
 
     #[test]
     fn test_evaluating_invalid_addition() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::String("Hello".to_string()),
@@ -338,7 +369,7 @@ mod tests {
                 value: LiteralValue::Number(42.0),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
 
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
@@ -349,11 +380,12 @@ mod tests {
                 value: LiteralValue::Number(42.0),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
     }
 
     #[test]
     fn test_evaluating_subtraction() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(5.0),
@@ -363,12 +395,13 @@ mod tests {
                 value: LiteralValue::Number(2.0),
             })),
         };
-        let result = binary.accept(&Vm).unwrap();
+        let result = binary.accept(&vm).unwrap();
         assert_eq!(result, Value::Number(3.0));
     }
 
     #[test]
     fn test_evaluating_invalid_subtraction() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::String("Hello".to_string()),
@@ -378,7 +411,7 @@ mod tests {
                 value: LiteralValue::Number(42.0),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
 
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
@@ -389,11 +422,12 @@ mod tests {
                 value: LiteralValue::Number(42.0),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
     }
 
     #[test]
     fn test_evaluating_division() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(5.0),
@@ -403,12 +437,13 @@ mod tests {
                 value: LiteralValue::Number(2.0),
             })),
         };
-        let result = binary.accept(&Vm).unwrap();
+        let result = binary.accept(&vm).unwrap();
         assert_eq!(result, Value::Number(2.5));
     }
 
     #[test]
     fn test_evaluating_invalid_division() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(5.5),
@@ -418,7 +453,7 @@ mod tests {
                 value: LiteralValue::String("Hello".to_string()),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
 
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
@@ -429,11 +464,12 @@ mod tests {
                 value: LiteralValue::Number(0.0),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
     }
 
     #[test]
     fn test_evaluating_multiplication() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(5.0),
@@ -443,12 +479,13 @@ mod tests {
                 value: LiteralValue::Number(2.0),
             })),
         };
-        let result = binary.accept(&Vm).unwrap();
+        let result = binary.accept(&vm).unwrap();
         assert_eq!(result, Value::Number(10.0));
     }
 
     #[test]
     fn test_evaluating_invalid_multiplication() {
+        let vm = Vm::new();
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
                 value: LiteralValue::Number(5.5),
@@ -458,7 +495,7 @@ mod tests {
                 value: LiteralValue::String("Hello".to_string()),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
 
         let binary = Binary {
             left: Box::new(Expr::Literal(Literal {
@@ -469,6 +506,33 @@ mod tests {
                 value: LiteralValue::Boolean(false),
             })),
         };
-        assert!(binary.accept(&Vm).is_err());
+        assert!(binary.accept(&vm).is_err());
+    }
+
+    #[test]
+    fn test_evaluating_global_variables() {
+        let mut vm = Vm::new();
+
+        let definition_statement = Statement::Variable(VariableStatement {
+            name: Box::new(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            value: Box::new(Expr::Literal(Literal {
+                value: LiteralValue::Number(42.0),
+            })),
+        });
+
+        definition_statement.accept(&mut vm).unwrap();
+
+        let variable_expression = Expr::Variable(Variable {
+            token: Box::new(Identifier {
+                line: 1,
+                value: "x".to_string(),
+            }),
+        });
+
+        let result = variable_expression.accept(&vm).unwrap();
+        assert_eq!(result, Value::Number(42.0));
     }
 }

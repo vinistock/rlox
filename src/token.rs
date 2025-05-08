@@ -19,7 +19,7 @@ pub enum Token {
     GreaterEqual { line: usize },
     Less { line: usize },
     LessEqual { line: usize },
-    Identifier { value: String, line: usize },
+    Identifier(Identifier),
     String { value: String, line: usize },
     Number { value: f64, line: usize },
     And { line: usize },
@@ -39,6 +39,18 @@ pub enum Token {
     Var { line: usize },
     While { line: usize },
     Eof,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Identifier {
+    pub value: String,
+    pub line: usize,
+}
+
+impl std::fmt::Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Identifier({}): {}", self.line, self.value)
+    }
 }
 
 impl std::fmt::Display for Token {
@@ -63,7 +75,9 @@ impl std::fmt::Display for Token {
             Token::GreaterEqual { line } => write!(f, "GreaterEqual({})", line),
             Token::Less { line } => write!(f, "Less({})", line),
             Token::LessEqual { line } => write!(f, "LessEqual({})", line),
-            Token::Identifier { value, line } => write!(f, "Identifier({}): {}", line, value),
+            Token::Identifier(identifier) => {
+                write!(f, "Identifier({}): {}", identifier.line, identifier.value)
+            }
             Token::String { value, line } => write!(f, "String({}): {}", line, value),
             Token::Number { value, line } => write!(f, "Number({}): {}", line, value),
             Token::And { line } => write!(f, "And({})", line),
@@ -109,7 +123,7 @@ impl Token {
             Token::GreaterEqual { line } => *line,
             Token::Less { line } => *line,
             Token::LessEqual { line } => *line,
-            Token::Identifier { value: _, line } => *line,
+            Token::Identifier(identifier) => identifier.line,
             Token::String { value: _, line } => *line,
             Token::Number { value: _, line } => *line,
             Token::And { line } => *line,
@@ -153,7 +167,7 @@ impl Token {
             Token::GreaterEqual { line: _ } => ">=".to_string(),
             Token::Less { line: _ } => "<".to_string(),
             Token::LessEqual { line: _ } => "<=".to_string(),
-            Token::Identifier { value, line: _ } => value.clone(),
+            Token::Identifier(identifier) => identifier.value.clone(),
             Token::String { value, line: _ } => value.clone(),
             Token::Number { value, line: _ } => value.to_string(),
             Token::And { line: _ } => "and".to_string(),

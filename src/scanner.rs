@@ -146,10 +146,10 @@ impl<'a> Scanner<'a> {
             }),
             "var" => self.tokens.push(Token::Var { line: self.line }),
             "while" => self.tokens.push(Token::While { line: self.line }),
-            _ => self.tokens.push(Token::Identifier {
+            _ => self.tokens.push(Token::Identifier(Identifier {
                 line: self.line,
                 value: text.to_string(),
-            }),
+            })),
         }
     }
 
@@ -362,10 +362,10 @@ mod tests {
         assert_eq!(tokens.len(), 2);
         assert_eq!(
             tokens[0],
-            Token::Identifier {
+            Token::Identifier(Identifier {
                 value: "iDentifier_".to_string(),
                 line: 1
-            }
+            })
         );
     }
 

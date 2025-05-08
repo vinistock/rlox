@@ -1,4 +1,4 @@
-use crate::ast::{Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary};
+use crate::ast::{Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary, Variable};
 
 pub trait Visitor {
     type Output;
@@ -6,11 +6,12 @@ pub trait Visitor {
     fn visit_grouping(&self, grouping: &Grouping) -> Self::Output;
     fn visit_literal(&self, literal: &Literal) -> Self::Output;
     fn visit_unary(&self, unary: &Unary) -> Self::Output;
+    fn visit_variable(&self, variable: &Variable) -> Self::Output;
 }
 
 pub trait StatementVisitor {
     type Output;
-    fn visit_statement(&self, statement: &Statement) -> Self::Output;
+    fn visit_statement(&mut self, statement: &Statement) -> Self::Output;
 }
 
 pub struct AstPrinter;
@@ -25,6 +26,10 @@ impl Visitor for AstPrinter {
             binary.left.accept(self),
             binary.right.accept(self)
         )
+    }
+
+    fn visit_variable(&self, variable: &Variable) -> Self::Output {
+        variable.token.value.clone()
     }
 
     fn visit_grouping(&self, grouping: &Grouping) -> Self::Output {
@@ -48,10 +53,13 @@ impl Visitor for AstPrinter {
 impl StatementVisitor for AstPrinter {
     type Output = String;
 
-    fn visit_statement(&self, statement: &Statement) -> Self::Output {
+    fn visit_statement(&mut self, statement: &Statement) -> Self::Output {
         match statement {
             Statement::Expression(expr) => expr.expression.accept(self),
             Statement::Print(print_stmt) => format!("print {}", print_stmt.expression.accept(self)),
+            Statement::Variable(variable) => {
+                format!("{}={}", variable.name, variable.value.accept(self))
+            }
         }
     }
 }
