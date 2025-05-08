@@ -38,20 +38,22 @@ pub enum Expr {
     Literal(Literal),
     Unary(Unary),
     Variable(Variable),
+    Assignment(Assignment),
 }
 
 pub trait Node {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output;
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output;
 }
 
 impl Node for Expr {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
         match self {
             Expr::Binary(it) => it.accept(visitor),
             Expr::Grouping(it) => it.accept(visitor),
             Expr::Literal(it) => it.accept(visitor),
             Expr::Unary(it) => it.accept(visitor),
             Expr::Variable(it) => it.accept(visitor),
+            Expr::Assignment(it) => it.accept(visitor),
         }
     }
 }
@@ -63,7 +65,7 @@ pub struct Binary {
 }
 
 impl Node for Binary {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
         visitor.visit_binary(self)
     }
 }
@@ -73,7 +75,7 @@ pub struct Grouping {
 }
 
 impl Node for Grouping {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
         visitor.visit_grouping(self)
     }
 }
@@ -90,7 +92,7 @@ pub struct Literal {
 }
 
 impl Node for Literal {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
         visitor.visit_literal(self)
     }
 }
@@ -100,7 +102,7 @@ pub struct Unary {
 }
 
 impl Node for Unary {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
         visitor.visit_unary(self)
     }
 }
@@ -109,7 +111,18 @@ pub struct Variable {
 }
 
 impl Node for Variable {
-    fn accept<T: Visitor>(&self, visitor: &T) -> T::Output {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
         visitor.visit_variable(self)
+    }
+}
+
+pub struct Assignment {
+    pub name: Box<Identifier>,
+    pub value: Box<Expr>,
+}
+
+impl Node for Assignment {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
+        visitor.visit_assignment(self)
     }
 }

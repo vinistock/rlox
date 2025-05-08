@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        Binary, Expr, ExpressionStatement, Grouping, Literal, LiteralValue, PrintStatement,
-        Statement, Unary, Variable, VariableStatement,
+        Assignment, Binary, Expr, ExpressionStatement, Grouping, Literal, LiteralValue,
+        PrintStatement, Statement, Unary, Variable, VariableStatement,
     },
     token::Token,
 };
@@ -150,8 +150,31 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn assignment(&mut self) -> Expr {
+        let expression = self.equality();
+
+        if let Some(Token::Equal { line: _ }) = self.peek() {
+            self.advance();
+            let value = self.assignment();
+
+            if let Expr::Variable(variable) = expression {
+                return Expr::Assignment(Assignment {
+                    name: variable.token,
+                    value: Box::new(value),
+                });
+            } else {
+                self.errors.push(format!(
+                    "[line {}] Error: Invalid assignment target.",
+                    self.previous().unwrap().line()
+                ));
+            }
+        }
+
+        expression
+    }
+
     fn expression(&mut self) -> Expr {
-        self.equality()
+        self.assignment()
     }
 
     fn equality(&mut self) -> Expr {
@@ -516,6 +539,50 @@ mod tests {
                 _ => panic!("Expected a literal expression."),
             },
             _ => panic!("Expected a print statement."),
+        }
+    }
+
+    #[test]
+    fn test_parsing_assignments() {
+        let tokens = vec![
+            Token::Identifier(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            Token::Equal { line: 1 },
+            Token::Number {
+                value: 42.0,
+                line: 1,
+            },
+            Token::Semicolon { line: 1 },
+            Token::Eof,
+        ];
+
+        let mut errors = Vec::new();
+        let mut parser = Parser::new(tokens, &mut errors);
+        let result = parser.parse();
+
+        assert_eq!(errors.len(), 0, "Expected no errors, but got: {:?}", errors);
+        assert_eq!(result.len(), 1);
+
+        match &result[0] {
+            Statement::Expression(expr) => match &*expr.expression {
+                Expr::Assignment(assignment) => {
+                    assert_eq!(assignment.name.value, "x");
+
+                    match &*assignment.value {
+                        Expr::Literal(literal) => match &literal.value {
+                            LiteralValue::Number(value) => {
+                                assert_eq!(*value, 42.0);
+                            }
+                            _ => panic!("Expected a number literal."),
+                        },
+                        _ => panic!("Expected a literal expression."),
+                    }
+                }
+                _ => panic!("Expected an assignment expression."),
+            },
+            _ => panic!("Expected an expression statement."),
         }
     }
 }

@@ -26,6 +26,18 @@ impl Environment {
             ))),
         }
     }
+
+    pub fn assign(&mut self, name: &str, value: Value) -> Result<(), RuntimeError> {
+        if let Some(v) = self.values.get_mut(name) {
+            *v = value;
+            Ok(())
+        } else {
+            Err(RuntimeError::UndefinedVariable(format!(
+                "{} variable is not defined",
+                name
+            )))
+        }
+    }
 }
 
 #[cfg(test)]
