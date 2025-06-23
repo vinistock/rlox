@@ -67,6 +67,15 @@ impl StatementVisitor for AstPrinter {
             Statement::Variable(variable) => {
                 format!("{}={}", variable.name, variable.value.accept(self))
             }
+            Statement::Block(block) => {
+                let mut result = "{".to_string();
+                for stmt in &block.statements {
+                    result.push_str(&self.visit_statement(stmt));
+                    result.push_str(";\n");
+                }
+                result.push('}');
+                result
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        Assignment, Binary, Expr, ExpressionStatement, Grouping, Literal, LiteralValue,
-        PrintStatement, Statement, Unary, Variable, VariableStatement,
+        Assignment, Binary, BlockStatement, Expr, ExpressionStatement, Grouping, Literal, LiteralValue, PrintStatement,
+        Statement, Unary, Variable, VariableStatement,
     },
     token::Token,
 };
@@ -103,8 +103,37 @@ impl<'a> Parser<'a> {
                 self.advance();
                 self.print_statement()
             }
+            Some(Token::LeftBrace { line: _ }) => {
+                self.advance();
+                self.block()
+            }
             _ => self.expression_statement(),
         }
+    }
+
+    fn block(&mut self) -> Result<Statement, ParseError> {
+        let mut statements = Vec::new();
+
+        while let Some(token) = self.peek() {
+            match token {
+                Token::RightBrace { line: _ } => {
+                    self.advance();
+                    break;
+                }
+                Token::Eof => {
+                    return Err(ParseError::ExpectedTokenError(format!(
+                        "[line {}] Error: Expected '}}' after block, but found EOF",
+                        self.previous().unwrap().line()
+                    )));
+                }
+                _ => {
+                    let statement = self.declaration()?;
+                    statements.push(statement);
+                }
+            }
+        }
+
+        Ok(Statement::Block(BlockStatement { statements }))
     }
 
     fn print_statement(&mut self) -> Result<Statement, ParseError> {
@@ -411,10 +440,7 @@ mod tests {
     fn test_parsing_print_statements() {
         let tokens = vec![
             Token::Print { line: 1 },
-            Token::Number {
-                value: 42.0,
-                line: 1,
-            },
+            Token::Number { value: 42.0, line: 1 },
             Token::Semicolon { line: 1 },
             Token::Eof,
         ];
@@ -424,11 +450,7 @@ mod tests {
         let statements = parser.parse();
 
         assert_eq!(statements.len(), 1);
-        assert!(
-            errors.is_empty(),
-            "Expected no errors, but got: {:?}",
-            errors
-        );
+        assert!(errors.is_empty(), "Expected no errors, but got: {:?}", errors);
 
         match &statements[0] {
             Statement::Print(_print) => {}
@@ -439,10 +461,7 @@ mod tests {
     #[test]
     fn test_parsing_expression_statements() {
         let tokens = vec![
-            Token::Number {
-                value: 42.0,
-                line: 1,
-            },
+            Token::Number { value: 42.0, line: 1 },
             Token::Semicolon { line: 1 },
             Token::Eof,
         ];
@@ -452,11 +471,7 @@ mod tests {
         let statements = parser.parse();
 
         assert_eq!(statements.len(), 1);
-        assert!(
-            errors.is_empty(),
-            "Expected no errors, but got: {:?}",
-            errors
-        );
+        assert!(errors.is_empty(), "Expected no errors, but got: {:?}", errors);
 
         match &statements[0] {
             Statement::Expression(_expr) => {}
@@ -468,10 +483,7 @@ mod tests {
     fn test_parsing_errors_on_missing_semi_colons() {
         let tokens = vec![
             Token::Print { line: 1 },
-            Token::Number {
-                value: 42.0,
-                line: 1,
-            },
+            Token::Number { value: 42.0, line: 1 },
             Token::Eof,
         ];
 
@@ -550,10 +562,7 @@ mod tests {
                 line: 1,
             }),
             Token::Equal { line: 1 },
-            Token::Number {
-                value: 42.0,
-                line: 1,
-            },
+            Token::Number { value: 42.0, line: 1 },
             Token::Semicolon { line: 1 },
             Token::Eof,
         ];
@@ -584,5 +593,37 @@ mod tests {
             },
             _ => panic!("Expected an expression statement."),
         }
+    }
+
+    #[test]
+    fn test_parsing_shadowed_assignments() {
+        let tokens = vec![
+            Token::Var { line: 1 },
+            Token::Identifier(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            Token::Equal { line: 1 },
+            Token::Number { value: 42.0, line: 1 },
+            Token::Semicolon { line: 1 },
+            Token::LeftBrace { line: 2 },
+            Token::Var { line: 3 },
+            Token::Identifier(Identifier {
+                value: "x".to_string(),
+                line: 3,
+            }),
+            Token::Equal { line: 3 },
+            Token::Number { value: 30.0, line: 3 },
+            Token::Semicolon { line: 3 },
+            Token::RightBrace { line: 4 },
+            Token::Eof,
+        ];
+
+        let mut errors = Vec::new();
+        let mut parser = Parser::new(tokens, &mut errors);
+        let result = parser.parse();
+
+        assert_eq!(errors.len(), 0, "Expected no errors, but got: {:?}", errors);
+        assert_eq!(result.len(), 2);
     }
 }

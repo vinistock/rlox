@@ -1,29 +1,34 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::vm::{RuntimeError, Value};
 
+pub type Env = Rc<RefCell<Environment>>;
 pub struct Environment {
     values: HashMap<String, Value>,
-    enclosing: Option<Box<Environment>>,
+    enclosing: Option<Env>,
 }
 
 impl Environment {
-    pub fn new(enclosing: Option<Box<Environment>>) -> Self {
+    pub fn new(enclosing: Option<Env>) -> Self {
         Environment {
             values: HashMap::new(),
             enclosing,
         }
     }
 
+    pub fn new_global() -> Env {
+        Rc::new(RefCell::new(Environment::new(None)))
+    }
+
     pub fn define(&mut self, name: String, value: Value) {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Result<&Value, RuntimeError> {
+    pub fn get(&self, name: &str) -> Result<Value, RuntimeError> {
         match self.values.get(name) {
-            Some(value) => Ok(value),
+            Some(value) => Ok(value.clone()),
             None => match self.enclosing {
-                Some(ref enclosing) => enclosing.get(name),
+                Some(ref enclosing) => enclosing.borrow().get(name),
                 None => Err(RuntimeError::UndefinedVariable(format!(
                     "{} variable is not defined",
                     name
@@ -38,7 +43,7 @@ impl Environment {
             Ok(())
         } else {
             match self.enclosing {
-                Some(ref mut enclosing) => enclosing.assign(name, value),
+                Some(ref mut enclosing) => enclosing.borrow_mut().assign(name, value),
                 None => Err(RuntimeError::UndefinedVariable(format!(
                     "{} variable is not defined",
                     name
@@ -58,8 +63,8 @@ mod tests {
         env.define("x".to_string(), Value::Number(42.0));
         env.define("y".to_string(), Value::String("Hello".to_string()));
 
-        assert_eq!(env.get("x").unwrap(), &Value::Number(42.0));
-        assert_eq!(env.get("y").unwrap(), &Value::String("Hello".to_string()));
+        assert_eq!(env.get("x").unwrap(), Value::Number(42.0));
+        assert_eq!(env.get("y").unwrap(), Value::String("Hello".to_string()));
     }
 
     #[test]
@@ -68,13 +73,10 @@ mod tests {
         parent_env.define("x".to_string(), Value::Number(42.0));
         parent_env.define("y".to_string(), Value::String("Hello".to_string()));
 
-        let child_env = Environment::new(Some(Box::new(parent_env)));
+        let child_env = Environment::new(Some(Rc::new(RefCell::new(parent_env))));
 
-        assert_eq!(child_env.get("x").unwrap(), &Value::Number(42.0));
-        assert_eq!(
-            child_env.get("y").unwrap(),
-            &Value::String("Hello".to_string())
-        );
+        assert_eq!(child_env.get("x").unwrap(), Value::Number(42.0));
+        assert_eq!(child_env.get("y").unwrap(), Value::String("Hello".to_string()));
         assert!(child_env.get("z").is_err());
     }
 
@@ -84,14 +86,11 @@ mod tests {
         parent_env.define("x".to_string(), Value::Number(42.0));
         parent_env.define("y".to_string(), Value::String("Hello".to_string()));
 
-        let mut child_env = Environment::new(Some(Box::new(parent_env)));
+        let mut child_env = Environment::new(Some(Rc::new(RefCell::new(parent_env))));
         child_env.assign("x", Value::Number(100.0)).unwrap();
 
-        assert_eq!(child_env.get("x").unwrap(), &Value::Number(100.0));
-        assert_eq!(
-            child_env.get("y").unwrap(),
-            &Value::String("Hello".to_string())
-        );
+        assert_eq!(child_env.get("x").unwrap(), Value::Number(100.0));
+        assert_eq!(child_env.get("y").unwrap(), Value::String("Hello".to_string()));
         assert!(child_env.get("z").is_err());
     }
 }

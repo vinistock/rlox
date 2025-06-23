@@ -1,12 +1,14 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
-    ast::{Assignment, Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary, Variable},
-    environment::Environment,
+    ast::{Assignment, Binary, BlockStatement, Grouping, Literal, LiteralValue, Node, Statement, Unary, Variable},
+    environment::{Env, Environment},
     token::Token,
     visitor::{StatementVisitor, Visitor},
 };
 
 pub struct Vm {
-    environment: Environment,
+    environment: Env,
 }
 
 #[derive(Debug)]
@@ -84,10 +86,9 @@ impl std::ops::Div for Value {
 
     fn div(self, other: Self) -> Self::Output {
         match (self, other) {
-            (Value::Number(l), Value::Number(0.0)) => Err(RuntimeError::ZeroDivision(format!(
-                "Cannot divide {} by zero",
-                l
-            ))),
+            (Value::Number(l), Value::Number(0.0)) => {
+                Err(RuntimeError::ZeroDivision(format!("Cannot divide {} by zero", l)))
+            }
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l / r)),
             (Value::Number(_l), other) => Err(RuntimeError::ArgumentError(format!(
                 "Expected number, but got {}",
@@ -177,7 +178,7 @@ impl std::cmp::PartialOrd for Value {
 impl Vm {
     pub fn new() -> Self {
         Vm {
-            environment: Environment::new(None),
+            environment: Environment::new_global(),
         }
     }
 
@@ -187,6 +188,20 @@ impl Vm {
             Value::Boolean(b) => *b,
             _ => true,
         }
+    }
+
+    fn execute_block(&mut self, block: &BlockStatement) -> Result<(), RuntimeError> {
+        let previous = self.environment.clone();
+        let inner = Rc::new(RefCell::new(Environment::new(Some(previous.clone()))));
+        self.environment = inner;
+
+        let result = block
+            .statements
+            .iter()
+            .try_for_each(|statement| self.visit_statement(statement));
+
+        self.environment = previous;
+        result
     }
 }
 
@@ -216,7 +231,7 @@ impl Visitor for Vm {
     }
 
     fn visit_variable(&mut self, variable: &Variable) -> Self::Output {
-        match self.environment.get(&variable.token.value) {
+        match self.environment.borrow().get(&variable.token.value) {
             Ok(value) => Ok(value.clone()),
             Err(err) => Err(err),
         }
@@ -225,6 +240,7 @@ impl Visitor for Vm {
     fn visit_assignment(&mut self, assignment: &Assignment) -> Self::Output {
         let value = assignment.value.accept(self)?;
         self.environment
+            .borrow_mut()
             .assign(&assignment.name.value, value.clone())?;
         Ok(value)
     }
@@ -272,9 +288,10 @@ impl StatementVisitor for Vm {
             }
             Statement::Variable(var) => {
                 let value = var.value.accept(self)?;
-                self.environment.define(var.name.value.clone(), value);
+                self.environment.borrow_mut().define(var.name.value.clone(), value);
                 Ok(())
             }
+            Statement::Block(block) => self.execute_block(block),
         }
     }
 }

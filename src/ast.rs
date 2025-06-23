@@ -7,6 +7,7 @@ pub enum Statement {
     Expression(ExpressionStatement),
     Print(PrintStatement),
     Variable(VariableStatement),
+    Block(BlockStatement),
 }
 
 pub struct ExpressionStatement {
@@ -20,6 +21,10 @@ pub struct PrintStatement {
 pub struct VariableStatement {
     pub name: Box<Identifier>,
     pub value: Box<Expr>,
+}
+
+pub struct BlockStatement {
+    pub statements: Vec<Statement>,
 }
 
 pub trait Stmt {
