@@ -5,6 +5,7 @@ use crate::{
 
 pub enum Statement {
     Expression(ExpressionStatement),
+    If(IfStatement),
     Print(PrintStatement),
     Variable(VariableStatement),
     Block(BlockStatement),
@@ -25,6 +26,12 @@ pub struct VariableStatement {
 
 pub struct BlockStatement {
     pub statements: Vec<Statement>,
+}
+
+pub struct IfStatement {
+    pub condition: Box<Expr>,
+    pub then_branch: Box<Statement>,
+    pub else_branch: Option<Box<Statement>>,
 }
 
 pub trait Stmt {

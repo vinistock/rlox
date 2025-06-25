@@ -1,6 +1,4 @@
-use crate::ast::{
-    Assignment, Binary, Grouping, Literal, LiteralValue, Node, Statement, Unary, Variable,
-};
+use crate::ast::{Assignment, Binary, Grouping, Literal, LiteralValue, Node, Statement, Stmt, Unary, Variable};
 
 pub trait Visitor {
     type Output;
@@ -76,6 +74,19 @@ impl StatementVisitor for AstPrinter {
                 result.push('}');
                 result
             }
+            Statement::If(if_stmt) => {
+                let mut result = format!(
+                    "if {}\n  {}",
+                    if_stmt.condition.accept(self),
+                    if_stmt.then_branch.accept(self)
+                );
+
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    result.push_str(&format!("\nelse {}", else_branch.accept(self)));
+                }
+
+                result
+            }
         }
     }
 }
@@ -120,9 +131,6 @@ mod tests {
         };
 
         let mut printer = AstPrinter;
-        assert_eq!(
-            printer.visit_binary(&expr),
-            "(* (- 123) (group 45.67))".to_string()
-        );
+        assert_eq!(printer.visit_binary(&expr), "(* (- 123) (group 45.67))".to_string());
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        Assignment, Binary, BlockStatement, Expr, ExpressionStatement, Grouping, Literal, LiteralValue, PrintStatement,
-        Statement, Unary, Variable, VariableStatement,
+        Assignment, Binary, BlockStatement, Expr, ExpressionStatement, Grouping, IfStatement, Literal, LiteralValue,
+        PrintStatement, Statement, Unary, Variable, VariableStatement,
     },
     token::Token,
 };
@@ -99,6 +99,10 @@ impl<'a> Parser<'a> {
 
     fn statement(&mut self) -> Result<Statement, ParseError> {
         match self.peek() {
+            Some(Token::If { line: _ }) => {
+                self.advance();
+                self.if_statement()
+            }
             Some(Token::Print { line: _ }) => {
                 self.advance();
                 self.print_statement()
@@ -176,6 +180,44 @@ impl<'a> Parser<'a> {
                 self.errors.push(message.clone());
                 Err(ParseError::ExpectedTokenError(message))
             }
+        }
+    }
+
+    fn if_statement(&mut self) -> Result<Statement, ParseError> {
+        if let Some(Token::LeftParen { line: _ }) = self.peek() {
+            self.advance();
+            let condition = self.expression();
+
+            if let Some(Token::RightParen { line: _ }) = self.peek() {
+                self.advance();
+                let then_branch = Box::new(self.statement()?);
+                let else_branch = if let Some(Token::Else { line: _ }) = self.peek() {
+                    self.advance();
+                    Some(Box::new(self.statement()?))
+                } else {
+                    None
+                };
+
+                Ok(Statement::If(IfStatement {
+                    condition: Box::new(condition),
+                    then_branch,
+                    else_branch,
+                }))
+            } else {
+                let message = format!(
+                    "[line {}] Error: Expected ')' after if condition.",
+                    self.previous().unwrap().line()
+                );
+                self.errors.push(message.clone());
+                Err(ParseError::ExpectedTokenError(message))
+            }
+        } else {
+            let message = format!(
+                "[line {}] Error: Expected '(' after 'if'.",
+                self.previous().unwrap().line()
+            );
+            self.errors.push(message.clone());
+            Err(ParseError::ExpectedTokenError(message))
         }
     }
 
