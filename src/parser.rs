@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         Assignment, Binary, BlockStatement, Expr, ExpressionStatement, Grouping, IfStatement, Literal, LiteralValue,
-        Logical, PrintStatement, Statement, Unary, Variable, VariableStatement,
+        Logical, PrintStatement, Statement, Unary, Variable, VariableStatement, WhileStatement,
     },
     token::Token,
 };
@@ -107,11 +107,46 @@ impl<'a> Parser<'a> {
                 self.advance();
                 self.print_statement()
             }
+            Some(Token::While { line: _ }) => {
+                self.advance();
+                self.while_statement()
+            }
             Some(Token::LeftBrace { line: _ }) => {
                 self.advance();
                 self.block()
             }
             _ => self.expression_statement(),
+        }
+    }
+
+    fn while_statement(&mut self) -> Result<Statement, ParseError> {
+        if let Some(Token::LeftParen { line: _ }) = self.peek() {
+            self.advance();
+            let condition = self.expression();
+
+            if let Some(Token::RightParen { line: _ }) = self.peek() {
+                self.advance();
+                let body = Box::new(self.statement()?);
+
+                Ok(Statement::While(WhileStatement {
+                    condition: Box::new(condition),
+                    body,
+                }))
+            } else {
+                let message = format!(
+                    "[line {}] Error: Expected ')' after while condition.",
+                    self.previous().unwrap().line()
+                );
+                self.errors.push(message.clone());
+                Err(ParseError::ExpectedTokenError(message))
+            }
+        } else {
+            let message = format!(
+                "[line {}] Error: Expected '(' after 'while'.",
+                self.previous().unwrap().line()
+            );
+            self.errors.push(message.clone());
+            Err(ParseError::ExpectedTokenError(message))
         }
     }
 

@@ -7,6 +7,7 @@ pub enum Statement {
     Expression(ExpressionStatement),
     If(IfStatement),
     Print(PrintStatement),
+    While(WhileStatement),
     Variable(VariableStatement),
     Block(BlockStatement),
 }
@@ -32,6 +33,10 @@ pub struct IfStatement {
     pub condition: Box<Expr>,
     pub then_branch: Box<Statement>,
     pub else_branch: Option<Box<Statement>>,
+}
+pub struct WhileStatement {
+    pub condition: Box<Expr>,
+    pub body: Box<Statement>,
 }
 
 pub trait Stmt {

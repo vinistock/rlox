@@ -301,12 +301,12 @@ impl StatementVisitor for Vm {
 
     fn visit_statement(&mut self, statement: &Statement) -> Self::Output {
         match statement {
-            Statement::Expression(expr) => {
-                expr.expression.accept(self)?;
+            Statement::Expression(stmt) => {
+                stmt.expression.accept(self)?;
                 Ok(())
             }
-            Statement::Print(expr) => {
-                let value = expr.expression.accept(self)?;
+            Statement::Print(stmt) => {
+                let value = stmt.expression.accept(self)?;
                 println!("{}", value);
                 Ok(())
             }
@@ -326,6 +326,18 @@ impl StatementVisitor for Vm {
                 } else {
                     Ok(())
                 }
+            }
+            Statement::While(while_stmt) => {
+                loop {
+                    let condition = while_stmt.condition.accept(self)?;
+                    if !self.truthy(&condition) {
+                        break;
+                    }
+
+                    while_stmt.body.accept(self)?;
+                }
+
+                Ok(())
             }
         }
     }

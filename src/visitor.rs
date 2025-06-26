@@ -99,6 +99,13 @@ impl StatementVisitor for AstPrinter {
 
                 result
             }
+            Statement::While(while_stmt) => {
+                format!(
+                    "while({}) {{\n  {}\n}}",
+                    while_stmt.condition.accept(self),
+                    while_stmt.body.accept(self)
+                )
+            }
         }
     }
 }
