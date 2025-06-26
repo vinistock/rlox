@@ -99,6 +99,10 @@ impl<'a> Parser<'a> {
 
     fn statement(&mut self) -> Result<Statement, ParseError> {
         match self.peek() {
+            Some(Token::For { line: _ }) => {
+                self.advance();
+                self.for_statement()
+            }
             Some(Token::If { line: _ }) => {
                 self.advance();
                 self.if_statement()
@@ -116,6 +120,95 @@ impl<'a> Parser<'a> {
                 self.block()
             }
             _ => self.expression_statement(),
+        }
+    }
+
+    fn for_statement(&mut self) -> Result<Statement, ParseError> {
+        if let Some(Token::LeftParen { line: _ }) = self.peek() {
+            self.advance();
+
+            let initializer = match self.peek() {
+                Some(Token::Semicolon { line: _ }) => {
+                    self.advance();
+                    None
+                }
+                Some(Token::Var { line: _ }) => {
+                    self.advance();
+                    Some(self.var_declaration()?)
+                }
+                _ => Some(self.expression_statement()?),
+            };
+
+            let mut condition = match self.peek() {
+                Some(Token::Semicolon { line: _ }) => None,
+                _ => Some(self.expression()),
+            };
+
+            if let Some(Token::Semicolon { line: _ }) = self.peek() {
+                self.advance();
+            } else {
+                let message = format!(
+                    "[line {}] Error: Expected ';' after for condition.",
+                    self.previous().unwrap().line()
+                );
+                self.errors.push(message.clone());
+                return Err(ParseError::ExpectedTokenError(message));
+            }
+
+            let increment = match self.peek() {
+                Some(Token::RightParen { line: _ }) => None,
+                _ => Some(self.expression()),
+            };
+
+            if let Some(Token::RightParen { line: _ }) = self.peek() {
+                self.advance();
+            } else {
+                let message = format!(
+                    "[line {}] Error: Expected ')' after for loop increment.",
+                    self.previous().unwrap().line()
+                );
+                self.errors.push(message.clone());
+                return Err(ParseError::ExpectedTokenError(message));
+            }
+
+            let mut body = self.statement()?;
+
+            if let Some(stmt) = increment {
+                body = Statement::Block(BlockStatement {
+                    statements: vec![
+                        body,
+                        Statement::Expression(ExpressionStatement {
+                            expression: Box::new(stmt),
+                        }),
+                    ],
+                });
+            }
+
+            if condition.is_none() {
+                condition = Some(Expr::Literal(Literal {
+                    value: LiteralValue::Boolean(true),
+                }));
+            }
+
+            body = Statement::While(WhileStatement {
+                condition: Box::new(condition.unwrap()),
+                body: Box::new(body),
+            });
+
+            if let Some(init) = initializer {
+                body = Statement::Block(BlockStatement {
+                    statements: vec![init, body],
+                });
+            }
+
+            Ok(body)
+        } else {
+            let message = format!(
+                "[line {}] Error: Expected '(' after 'for'.",
+                self.previous().unwrap().line()
+            );
+            self.errors.push(message.clone());
+            Err(ParseError::ExpectedTokenError(message))
         }
     }
 
