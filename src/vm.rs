@@ -346,7 +346,7 @@ impl StatementVisitor for Vm {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Expr, ExpressionStatement, IfStatement, Stmt, VariableStatement},
+        ast::{Expr, ExpressionStatement, IfStatement, Stmt, VariableStatement, WhileStatement},
         token::Identifier,
     };
 
@@ -887,5 +887,67 @@ mod tests {
 
         let result = variable_expression.accept(&mut vm).unwrap();
         assert_eq!(result, Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let mut vm = Vm::new();
+
+        let statements = vec![
+            Statement::Variable(VariableStatement {
+                name: Box::new(Identifier {
+                    value: "x".to_string(),
+                    line: 1,
+                }),
+                value: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Number(0.0),
+                })),
+            }),
+            Statement::While(WhileStatement {
+                condition: Box::new(Expr::Binary(Binary {
+                    left: Box::new(Expr::Variable(Variable {
+                        token: Box::new(Identifier {
+                            value: "x".to_string(),
+                            line: 1,
+                        }),
+                    })),
+                    operator: Box::new(Token::Less { line: 1 }),
+                    right: Box::new(Expr::Literal(Literal {
+                        value: LiteralValue::Number(5.0),
+                    })),
+                })),
+                body: Box::new(Statement::Variable(VariableStatement {
+                    name: Box::new(Identifier {
+                        value: "x".to_string(),
+                        line: 1,
+                    }),
+                    value: Box::new(Expr::Binary(Binary {
+                        left: Box::new(Expr::Variable(Variable {
+                            token: Box::new(Identifier {
+                                value: "x".to_string(),
+                                line: 1,
+                            }),
+                        })),
+                        operator: Box::new(Token::Plus { line: 1 }),
+                        right: Box::new(Expr::Literal(Literal {
+                            value: LiteralValue::Number(1.0),
+                        })),
+                    })),
+                })),
+            }),
+        ];
+
+        for statement in statements {
+            statement.accept(&mut vm).unwrap();
+        }
+        let variable_expression = Expr::Variable(Variable {
+            token: Box::new(Identifier {
+                line: 1,
+                value: "x".to_string(),
+            }),
+        });
+
+        let result = variable_expression.accept(&mut vm).unwrap();
+        assert_eq!(result, Value::Number(5.0));
     }
 }
