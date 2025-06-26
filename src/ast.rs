@@ -48,6 +48,7 @@ pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
     Literal(Literal),
+    Logical(Logical),
     Unary(Unary),
     Variable(Variable),
     Assignment(Assignment),
@@ -63,6 +64,7 @@ impl Node for Expr {
             Expr::Binary(it) => it.accept(visitor),
             Expr::Grouping(it) => it.accept(visitor),
             Expr::Literal(it) => it.accept(visitor),
+            Expr::Logical(it) => it.accept(visitor),
             Expr::Unary(it) => it.accept(visitor),
             Expr::Variable(it) => it.accept(visitor),
             Expr::Assignment(it) => it.accept(visitor),
@@ -108,6 +110,19 @@ impl Node for Literal {
         visitor.visit_literal(self)
     }
 }
+
+pub struct Logical {
+    pub left: Box<Expr>,
+    pub operator: Box<Token>,
+    pub right: Box<Expr>,
+}
+
+impl Node for Logical {
+    fn accept<T: Visitor>(&self, visitor: &mut T) -> T::Output {
+        visitor.visit_logical(self)
+    }
+}
+
 pub struct Unary {
     pub operator: Box<Token>,
     pub right: Box<Expr>,

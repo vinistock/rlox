@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         Assignment, Binary, BlockStatement, Expr, ExpressionStatement, Grouping, IfStatement, Literal, LiteralValue,
-        PrintStatement, Statement, Unary, Variable, VariableStatement,
+        Logical, PrintStatement, Statement, Unary, Variable, VariableStatement,
     },
     token::Token,
 };
@@ -222,7 +222,7 @@ impl<'a> Parser<'a> {
     }
 
     fn assignment(&mut self) -> Expr {
-        let expression = self.equality();
+        let expression = self.or();
 
         if let Some(Token::Equal { line: _ }) = self.peek() {
             self.advance();
@@ -242,6 +242,52 @@ impl<'a> Parser<'a> {
         }
 
         expression
+    }
+
+    fn or(&mut self) -> Expr {
+        let mut expr = self.and();
+
+        while let Some(token) = self.peek() {
+            match token {
+                Token::Or { line: _ } => {
+                    self.advance();
+                }
+                _ => break,
+            }
+            let operator = Box::new(self.previous().unwrap().clone());
+            let right = self.and();
+
+            expr = Expr::Logical(Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            });
+        }
+
+        expr
+    }
+
+    fn and(&mut self) -> Expr {
+        let mut expr = self.equality();
+
+        while let Some(token) = self.peek() {
+            match token {
+                Token::And { line: _ } => {
+                    self.advance();
+                }
+                _ => break,
+            }
+            let operator = Box::new(self.previous().unwrap().clone());
+            let right = self.equality();
+
+            expr = Expr::Logical(Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            });
+        }
+
+        expr
     }
 
     fn expression(&mut self) -> Expr {

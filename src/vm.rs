@@ -2,7 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     ast::{
-        Assignment, Binary, BlockStatement, Grouping, Literal, LiteralValue, Node, Statement, Stmt, Unary, Variable,
+        Assignment, Binary, BlockStatement, Grouping, Literal, LiteralValue, Logical, Node, Statement, Stmt, Unary,
+        Variable,
     },
     environment::{Env, Environment},
     token::Token,
@@ -257,6 +258,27 @@ impl Visitor for Vm {
             LiteralValue::Number(n) => Ok(Value::Number(n)),
             LiteralValue::Boolean(b) => Ok(Value::Boolean(b)),
             LiteralValue::Nil => Ok(Value::Nil),
+        }
+    }
+
+    fn visit_logical(&mut self, logical: &Logical) -> Self::Output {
+        let left = logical.left.accept(self)?;
+
+        match *logical.operator {
+            Token::Or { line: _ } => {
+                if self.truthy(&left) {
+                    Ok(left)
+                } else {
+                    logical.right.accept(self)
+                }
+            }
+            _ => {
+                if !self.truthy(&left) {
+                    Ok(left)
+                } else {
+                    logical.right.accept(self)
+                }
+            }
         }
     }
 
@@ -717,5 +739,141 @@ mod tests {
 
         let result = variable_expression.accept(&mut vm).unwrap();
         assert_eq!(result, Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_or_statement() {
+        let mut vm = Vm::new();
+
+        let statements = vec![Statement::Variable(VariableStatement {
+            name: Box::new(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            value: Box::new(Expr::Logical(Logical {
+                left: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Boolean(false),
+                })),
+                operator: Box::new(Token::Or { line: 1 }),
+                right: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Number(5.0),
+                })),
+            })),
+        })];
+
+        for statement in statements {
+            statement.accept(&mut vm).unwrap();
+        }
+        let variable_expression = Expr::Variable(Variable {
+            token: Box::new(Identifier {
+                line: 1,
+                value: "x".to_string(),
+            }),
+        });
+
+        let result = variable_expression.accept(&mut vm).unwrap();
+        assert_eq!(result, Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_or_statement_short_circuit() {
+        let mut vm = Vm::new();
+
+        let statements = vec![Statement::Variable(VariableStatement {
+            name: Box::new(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            value: Box::new(Expr::Logical(Logical {
+                left: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Number(15.0),
+                })),
+                operator: Box::new(Token::Or { line: 1 }),
+                right: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Number(5.0),
+                })),
+            })),
+        })];
+
+        for statement in statements {
+            statement.accept(&mut vm).unwrap();
+        }
+        let variable_expression = Expr::Variable(Variable {
+            token: Box::new(Identifier {
+                line: 1,
+                value: "x".to_string(),
+            }),
+        });
+
+        let result = variable_expression.accept(&mut vm).unwrap();
+        assert_eq!(result, Value::Number(15.0));
+    }
+
+    #[test]
+    fn test_and_statement() {
+        let mut vm = Vm::new();
+
+        let statements = vec![Statement::Variable(VariableStatement {
+            name: Box::new(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            value: Box::new(Expr::Logical(Logical {
+                left: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Boolean(true),
+                })),
+                operator: Box::new(Token::And { line: 1 }),
+                right: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Number(5.0),
+                })),
+            })),
+        })];
+
+        for statement in statements {
+            statement.accept(&mut vm).unwrap();
+        }
+        let variable_expression = Expr::Variable(Variable {
+            token: Box::new(Identifier {
+                line: 1,
+                value: "x".to_string(),
+            }),
+        });
+
+        let result = variable_expression.accept(&mut vm).unwrap();
+        assert_eq!(result, Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_and_statement_short_circuit() {
+        let mut vm = Vm::new();
+
+        let statements = vec![Statement::Variable(VariableStatement {
+            name: Box::new(Identifier {
+                value: "x".to_string(),
+                line: 1,
+            }),
+            value: Box::new(Expr::Logical(Logical {
+                left: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Boolean(false),
+                })),
+                operator: Box::new(Token::And { line: 1 }),
+                right: Box::new(Expr::Literal(Literal {
+                    value: LiteralValue::Number(5.0),
+                })),
+            })),
+        })];
+
+        for statement in statements {
+            statement.accept(&mut vm).unwrap();
+        }
+        let variable_expression = Expr::Variable(Variable {
+            token: Box::new(Identifier {
+                line: 1,
+                value: "x".to_string(),
+            }),
+        });
+
+        let result = variable_expression.accept(&mut vm).unwrap();
+        assert_eq!(result, Value::Boolean(false));
     }
 }

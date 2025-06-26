@@ -1,10 +1,13 @@
-use crate::ast::{Assignment, Binary, Grouping, Literal, LiteralValue, Node, Statement, Stmt, Unary, Variable};
+use crate::ast::{
+    Assignment, Binary, Grouping, Literal, LiteralValue, Logical, Node, Statement, Stmt, Unary, Variable,
+};
 
 pub trait Visitor {
     type Output;
     fn visit_binary(&mut self, binary: &Binary) -> Self::Output;
     fn visit_grouping(&mut self, grouping: &Grouping) -> Self::Output;
     fn visit_literal(&mut self, literal: &Literal) -> Self::Output;
+    fn visit_logical(&mut self, logical: &Logical) -> Self::Output;
     fn visit_unary(&mut self, unary: &Unary) -> Self::Output;
     fn visit_variable(&mut self, variable: &Variable) -> Self::Output;
     fn visit_assignment(&mut self, assignment: &Assignment) -> Self::Output;
@@ -48,6 +51,15 @@ impl Visitor for AstPrinter {
             LiteralValue::Boolean(ref b) => b.to_string(),
             LiteralValue::Nil => "nil".to_string(),
         }
+    }
+
+    fn visit_logical(&mut self, logical: &Logical) -> Self::Output {
+        format!(
+            "({} {} {})",
+            logical.operator.lexeme(),
+            logical.left.accept(self),
+            logical.right.accept(self)
+        )
     }
 
     fn visit_unary(&mut self, unary: &Unary) -> Self::Output {
